@@ -222,7 +222,26 @@ class KpwikProvider(WaterProvider):
                 _LOGGER.error("KPWIK: could not extract p_instance from login page")
                 return False
 
-            _LOGGER.debug("KPWIK: p_instance=%s", p_instance)
+            # TEMPORARY DIAGNOSTIC LOGGING (remove once login is confirmed working):
+            # logged at WARNING so it's visible without enabling debug logging.
+            _LOGGER.warning(
+                "KPWIK DIAG: p_instance=%r salt=%r protected_len=%s "
+                "ck_nazwa=%r ck_wlasciciel=%r v_nazwa=%r v_wlasciciel=%r v_http=%r v_ip=%r",
+                p_instance,
+                fields["salt"],
+                len(fields["protected"]) if fields["protected"] else 0,
+                fields["ck_nazwa"],
+                fields["ck_wlasciciel"],
+                fields["v_nazwa"],
+                fields["v_wlasciciel"],
+                fields["v_http"],
+                fields["v_ip"],
+            )
+            if not fields["salt"]:
+                _LOGGER.warning(
+                    "KPWIK DIAG: salt/submission-id came back EMPTY — "
+                    "the login POST is very likely being rejected because of this"
+                )
 
             # Step 2 — submit credentials
             # Build the p_json payload exactly as the browser does
@@ -274,6 +293,15 @@ class KpwikProvider(WaterProvider):
             )
             resp.raise_for_status()
 
+            # TEMPORARY DIAGNOSTIC LOGGING (remove once login is confirmed working):
+            _LOGGER.warning(
+                "KPWIK DIAG: login POST -> status=%s final_url=%s cookies=%s body_snippet=%.400r",
+                resp.status_code,
+                resp.url,
+                list(client.cookies.keys()),
+                resp.text,
+            )
+
             # Verify we are authenticated: the session cookie must be present
             # and the response must not redirect back to the login page
             session_cookie = client.cookies.get("ORA_WWV_APP_110")
@@ -285,6 +313,11 @@ class KpwikProvider(WaterProvider):
             dash = client.get(
                 f"{APEX_BASE}/r/ebok/e/podsumowanie",
                 params={"session": p_instance},
+            )
+            _LOGGER.warning(
+                "KPWIK DIAG: dashboard check -> status=%s final_url=%s",
+                dash.status_code,
+                dash.url,
             )
             if "logowanie" in dash.url.path:
                 _LOGGER.error("KPWIK: login failed — redirected back to login page")
