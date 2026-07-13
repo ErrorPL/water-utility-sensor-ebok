@@ -333,3 +333,40 @@ def test_kpwik_scrape_meters_page_finds_ajax_id():
 
     fields = KpwikProvider._scrape_meters_page(fake_html)
     assert fields["ajax_id"] == "UkVHSU9OIFRZUEV-fjk3NTQwNDUxNjgxOTkxODY3/abc123"
+
+
+def test_kpwik_scrape_login_page_extracts_salt_protected_and_checksums():
+    """_scrape_login_page reads salt/protected/ck from plain hidden <input> tags.
+
+    APEX renders these as real hidden form fields, not as inline JSON text —
+    confirmed by capturing a real browser submission against the live portal.
+    This is a regression test for a bug where the previous JSON-style regexes
+    never matched anything on the real page, so every login attempt was
+    rejected with an APEX "Page protection violation" error.
+    """
+    from custom_components.water_utility_sensor.providers.kpwik import KpwikProvider
+
+    fake_html = '''
+    <form>
+    <input type="hidden" name="P102_HTTP" id="P102_HTTP" value="https:">
+    <input type="hidden" name="P102_IP" id="P102_IP" value="1.2.3.4">
+    <input type="hidden" name="P102_POMOC" id="P102_POMOC" value="">
+    <input type="hidden" id="P102_NAZWA" name="P102_NAZWA" value="somecompany"><input type="hidden" data-for="P102_NAZWA" value="CKVALUE1==">
+    <input type="hidden" id="P102_WLASCICIEL" name="P102_WLASCICIEL" value="Some Owner Name"><input type="hidden" data-for="P102_WLASCICIEL" value="CKVALUE2==">
+    <input type="text" id="P102_USERNAME" name="P102_USERNAME" value="">
+    <input type="password" id="P102_PASSWORD" name="P102_PASSWORD" value="">
+    <input type="hidden" name="p_flow_id" value="110">
+    <input type="hidden" value="38473827462938473827462" id="pSalt">
+    <input type="hidden" id="pPageItemsProtected" value="PROTECTEDVALUEXYZ">
+    </form>
+    <script>var pInstance = "4407832394646";</script>
+    '''
+
+    fields = KpwikProvider._scrape_login_page(fake_html)
+    assert fields["salt"] == "38473827462938473827462"
+    assert fields["protected"] == "PROTECTEDVALUEXYZ"
+    assert fields["item_checksums"]["P102_NAZWA"] == "CKVALUE1=="
+    assert fields["item_checksums"]["P102_WLASCICIEL"] == "CKVALUE2=="
+    assert fields["item_values"]["P102_HTTP"] == "https:"
+    assert fields["item_values"]["P102_IP"] == "1.2.3.4"
+    assert "P102_HTTP" not in fields["item_checksums"]

@@ -1,6 +1,7 @@
 """KPWIK (Kobierzyckie Przedsiębiorstwo Wodociągów i Kanalizacji) water utility provider."""
 import json
 import logging
+import random
 import re
 import ssl
 from datetime import datetime
@@ -113,7 +114,44 @@ class KpwikProvider(WaterProvider):
         )
 
     @staticmethod
-    def _scrape_login_page(html: str) -> dict:
+    def _find_input_value(html: str, attr_name: str, attr_value: str) -> Optional[str]:
+        """Return the `value="..."` of a hidden <input> tag identified by another
+        attribute (id, name, or data-for). APEX renders these as plain HTML hidden
+        inputs — NOT as inline JSON — and the attribute order on the tag varies
+        (sometimes `value` comes before the identifying attribute, sometimes after),
+        so both orders are tried. Confirmed via live inspection of the real
+        rendered login page (the previous JSON-style regexes never matched anything,
+        since this data was never present as literal JSON text on the page)."""
+        escaped = re.escape(attr_value)
+        m = re.search(
+            rf'<input[^>]*\b{attr_name}="{escaped}"[^>]*\bvalue="([^"]*)"', html
+        )
+        if m:
+            return m.group(1)
+        m = re.search(
+            rf'<input[^>]*\bvalue="([^"]*)"[^>]*\b{attr_name}="{escaped}"', html
+        )
+        if m:
+            return m.group(1)
+        return None
+
+    # Page items submitted on the login form, in the same order the browser
+    # submits them. Only P102_NAZWA and P102_WLASCICIEL are session-state
+    # protected (i.e. carry a "ck" checksum) — confirmed by inspecting a real
+    # submission's payload.
+    _LOGIN_ITEM_NAMES = (
+        "P102_HTTP",
+        "P102_IP",
+        "P102_POMOC",
+        "P102_NAZWA",
+        "P102_WLASCICIEL",
+        "P102_USERNAME",
+        "P102_PASSWORD",
+    )
+    _LOGIN_PROTECTED_ITEMS = ("P102_NAZWA", "P102_WLASCICIEL")
+
+    @classmethod
+    def _scrape_login_page(cls, html: str) -> dict:
         """Extract all APEX hidden fields and checksums from the login page HTML."""
 
         def _find(pattern, text, group=1, default=""):
@@ -126,39 +164,41 @@ class KpwikProvider(WaterProvider):
             # Fallback: URL pattern in form action
             p_instance = _find(r'logowanie/(\d+)', html)
 
-        # One-time submission nonce (same as salt in p_json)
-        salt = _find(r'"salt"\s*:\s*"(\d+)"', html)
+        # One-time submission nonce — plain hidden input <input ... id="pSalt" value="...">
+        salt = cls._find_input_value(html, "id", "pSalt") or ""
 
         # The "protected" HMAC covering read-only field names
-        protected = _find(r'"protected"\s*:\s*"([^"]+)"', html)
+        # <input type="hidden" id="pPageItemsProtected" value="...">
+        protected = cls._find_input_value(html, "id", "pPageItemsProtected") or ""
 
-        # Checksums for server-set read-only items (P102_NAZWA, P102_WLASCICIEL)
-        # These are per-session HMACs the server embeds next to each read-only item
-        ck_nazwa = _find(r'"n"\s*:\s*"P102_NAZWA"[^}]*"ck"\s*:\s*"([^"]+)"', html)
-        ck_wlasciciel = _find(r'"n"\s*:\s*"P102_WLASCICIEL"[^}]*"ck"\s*:\s*"([^"]+)"', html)
-
-        # Server-populated read-only values
-        v_nazwa = _find(r'"n"\s*:\s*"P102_NAZWA"[^}]*"v"\s*:\s*"([^"]*)"', html)
-        v_wlasciciel = _find(r'"n"\s*:\s*"P102_WLASCICIEL"[^}]*"v"\s*:\s*"([^"]*)"', html)
-
-        # HTTP protocol and client IP injected by APEX
-        v_http = _find(r'"n"\s*:\s*"P102_HTTP"[^}]*"v"\s*:\s*"([^"]*)"', html) or "https:"
-        v_ip = _find(r'"n"\s*:\s*"P102_IP"[^}]*"v"\s*:\s*"([^"]*)"', html)
+        # Each page item's current value lives in its own hidden/text <input
+        # id="ITEM_NAME" name="ITEM_NAME" value="...">. Protected items additionally
+        # have a checksum in a sibling <input data-for="ITEM_NAME" value="...">.
+        item_values = {}
+        item_checksums = {}
+        for name in cls._LOGIN_ITEM_NAMES:
+            item_values[name] = cls._find_input_value(html, "id", name) or ""
+            ck = cls._find_input_value(html, "data-for", name)
+            if ck:
+                item_checksums[name] = ck
 
         return {
             "p_instance": p_instance,
             "salt": salt,
             "protected": protected,
-            "ck_nazwa": ck_nazwa,
-            "ck_wlasciciel": ck_wlasciciel,
-            "v_nazwa": v_nazwa,
-            "v_wlasciciel": v_wlasciciel,
-            "v_http": v_http,
-            "v_ip": v_ip,
+            "item_values": item_values,
+            "item_checksums": item_checksums,
+            # kept for the diagnostic log below
+            "ck_nazwa": item_checksums.get("P102_NAZWA", ""),
+            "ck_wlasciciel": item_checksums.get("P102_WLASCICIEL", ""),
+            "v_nazwa": item_values.get("P102_NAZWA", ""),
+            "v_wlasciciel": item_values.get("P102_WLASCICIEL", ""),
+            "v_http": item_values.get("P102_HTTP", "") or "https:",
+            "v_ip": item_values.get("P102_IP", ""),
         }
 
-    @staticmethod
-    def _scrape_meters_page(html: str) -> dict:
+    @classmethod
+    def _scrape_meters_page(cls, html: str) -> dict:
         """Extract the APEX region ajaxIdentifier and page-item checksums
         needed to fetch the meter list from the wodomierze (meters) page."""
 
@@ -178,16 +218,17 @@ class KpwikProvider(WaterProvider):
             # Broader fallback: first ajaxIdentifier that looks like a region token
             ajax_id = _find(r'"ajaxIdentifier"\s*:\s*"(UkVHSU9O[^"]+)"', html)
 
-        # Checksum for P20_INFSIECINSTAL_ID (the only checksummed item on this page)
-        ck_instal = _find(
-            r'"n"\s*:\s*"P20_INFSIECINSTAL_ID"[^}]*"ck"\s*:\s*"([^"]+)"', html
-        )
+        # Checksum for P20_INFSIECINSTAL_ID (the only checksummed item on this page).
+        # Same plain-hidden-input pattern confirmed on the login page: a sibling
+        # <input data-for="P20_INFSIECINSTAL_ID" value="..."> holds the checksum,
+        # not inline JSON text.
+        ck_instal = cls._find_input_value(html, "data-for", "P20_INFSIECINSTAL_ID") or ""
 
-        # Protected HMAC for the page's form region
-        protected = _find(r'"protected"\s*:\s*"([^"]+)"', html)
+        # Protected HMAC for the page's form region — plain hidden input.
+        protected = cls._find_input_value(html, "id", "pPageItemsProtected") or ""
 
-        # Salt / submission nonce
-        salt = _find(r'"salt"\s*:\s*"(\d+)"', html)
+        # Salt / submission nonce — plain hidden input.
+        salt = cls._find_input_value(html, "id", "pSalt") or ""
 
         return {
             "region_id": region_id,
@@ -244,25 +285,23 @@ class KpwikProvider(WaterProvider):
                 )
 
             # Step 2 — submit credentials
-            # Build the p_json payload exactly as the browser does
-            items_to_submit = [
-                {"n": "P102_HTTP", "v": fields["v_http"]},
-                {"n": "P102_IP",   "v": fields["v_ip"]},
-                {"n": "P102_POMOC", "v": ""},
-            ]
-            if fields["ck_nazwa"]:
-                items_to_submit.append(
-                    {"n": "P102_NAZWA", "v": fields["v_nazwa"], "ck": fields["ck_nazwa"]}
-                )
-            if fields["ck_wlasciciel"]:
-                items_to_submit.append(
-                    {"n": "P102_WLASCICIEL", "v": fields["v_wlasciciel"],
-                     "ck": fields["ck_wlasciciel"]}
-                )
-            items_to_submit += [
-                {"n": "P102_USERNAME", "v": self.username},
-                {"n": "P102_PASSWORD", "v": self.password},
-            ]
+            # Build the p_json payload exactly as the browser does. Values for
+            # every item come from the page's own hidden inputs (scraped above),
+            # except the two credential fields which we override with the real
+            # username/password. Only the items in _LOGIN_PROTECTED_ITEMS carry
+            # a "ck" checksum — confirmed by capturing a real browser submission.
+            item_values = dict(fields["item_values"])
+            item_values["P102_USERNAME"] = self.username
+            item_values["P102_PASSWORD"] = self.password
+
+            items_to_submit = []
+            for name in self._LOGIN_ITEM_NAMES:
+                item = {"n": name, "v": item_values.get(name, "")}
+                if name in self._LOGIN_PROTECTED_ITEMS:
+                    ck = fields["item_checksums"].get(name)
+                    if ck:
+                        item["ck"] = ck
+                items_to_submit.append(item)
 
             p_json = {
                 "pageItems": {
@@ -274,6 +313,12 @@ class KpwikProvider(WaterProvider):
                 "salt": fields["salt"],
             }
 
+            # p_page_submission_id is a fresh client-generated nonce — NOT the
+            # same value as salt. The real browser generates a new random numeric
+            # string for it on every submission (confirmed via live capture: it
+            # never appears anywhere in the page HTML, unlike salt/protected/ck).
+            page_submission_id = "".join(random.choices("0123456789", k=39))
+
             post_data = {
                 "p_flow_id":            "110",
                 "p_flow_step_id":       "102",
@@ -281,7 +326,7 @@ class KpwikProvider(WaterProvider):
                 "p_debug":              "",
                 "p_request":            "P102_ZALOGUJ",
                 "p_reload_on_submit":   "S",
-                "p_page_submission_id": fields["salt"],
+                "p_page_submission_id": page_submission_id,
                 "p_json":               json.dumps(p_json, separators=(",", ":")),
             }
 
