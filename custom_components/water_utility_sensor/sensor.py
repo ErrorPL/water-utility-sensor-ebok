@@ -1,4 +1,4 @@
-"""Platform for sensor integration."""
+"""Platform for water utility sensor integration."""
 from datetime import timedelta
 import logging
 
@@ -8,12 +8,12 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, UnitOfVolume, EntityCategory
+from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, UnitOfVolume
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 from .coordinator import WaterUtilityCoordinator
-from .providers import WaterReading, AccountBalance as AccountBalanceData
+from .providers import ProviderRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,20 +21,22 @@ DEFAULT_SCAN_INTERVAL = timedelta(hours=8)
 
 
 async def async_setup_entry(
-        hass: HomeAssistant,
-        config_entry: ConfigEntry,
-        async_add_entities,
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities,
 ):
     """Set up water utility sensor platform."""
-    _LOGGER.info("Setting up water utility sensor platform")
+    _LOGGER.info("Setting up water utility sensor platform for %s", config_entry.entry_id)
 
     username = config_entry.data[CONF_USERNAME]
     password = config_entry.data[CONF_PASSWORD]
     provider_id = config_entry.data.get("provider", "wik_krzeszowice")
 
-    # Get update interval from options or use default
     update_interval = timedelta(
-        hours=config_entry.options.get("update_interval_hours", DEFAULT_SCAN_INTERVAL.total_seconds() / 3600)
+        hours=config_entry.options.get(
+            "update_interval_hours",
+            DEFAULT_SCAN_INTERVAL.total_seconds() / 3600,
+        )
     )
 
     coordinator = WaterUtilityCoordinator(
@@ -45,35 +47,26 @@ async def async_setup_entry(
         update_interval=update_interval,
     )
 
-    # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
 
     entities = []
 
-    # Create a sensor for each meter
     for meter_number in coordinator.data.readings:
         entities.append(
-            WaterMeterSensor(
-                coordinator,
-                meter_number,
-                config_entry.entry_id,
-            )
+            WaterMeterSensor(coordinator, meter_number, config_entry.entry_id)
         )
 
-    # Create balance sensor
-    entities.append(
-        AccountBalanceSensor(
-            coordinator,
-            config_entry.entry_id,
+    if coordinator.data.balance is not None:
+        entities.append(
+            AccountBalanceSensor(coordinator, config_entry.entry_id)
         )
-    )
 
-    async_add_entities(entities, update_before_add=True)
-    _LOGGER.info(f"Created {len(entities)} water utility sensor entities")
+    async_add_entities(entities)
+    _LOGGER.info("Created %d water utility sensor entities", len(entities))
 
 
 class WaterMeterSensor(SensorEntity):
-    """Water meter sensor."""
+    """Sensor representing a single water meter's cumulative reading."""
 
     def __init__(
         self,
@@ -85,19 +78,24 @@ class WaterMeterSensor(SensorEntity):
         self.meter_number = meter_number
         self.entry_id = entry_id
 
-        self._attr_unique_id = f"water_meter_{meter_number}"
+        self._attr_unique_id = f"{entry_id}_meter_{meter_number}"
         self._attr_name = f"Water Meter {meter_number}"
         self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
         self._attr_device_class = SensorDeviceClass.WATER
         self._attr_state_class = SensorStateClass.TOTAL_INCREASING
-        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        # Primary measurement — not diagnostic
+        self._attr_entity_category = None
 
     @property
     def device_info(self):
+        provider_class = ProviderRegistry.get(self.coordinator.provider_id)
+        manufacturer = (
+            provider_class("", "").info.name if provider_class else "Water Utility"
+        )
         return {
             "identifiers": {(DOMAIN, self.entry_id)},
             "name": "Water Utility",
-            "manufacturer": "WODKAN Krzeszowice",
+            "manufacturer": manufacturer,
             "model": "Water Meter",
         }
 
@@ -108,24 +106,26 @@ class WaterMeterSensor(SensorEntity):
     @property
     def native_value(self):
         reading = self.coordinator.data.readings.get(self.meter_number)
-        if reading is None:
-            return None
-        return reading.current_reading
+        return reading.current_reading if reading else None
 
     @property
     def extra_state_attributes(self):
         reading = self.coordinator.data.readings.get(self.meter_number)
-        attrs = {}
-        if reading:
-            attrs["meter_number"] = reading.meter_number
-            attrs["previous_reading"] = reading.previous_reading
-            attrs["consumption"] = reading.consumption
-            attrs["last_update"] = reading.timestamp.isoformat()
-        return attrs
+        if not reading:
+            return {}
+        return {
+            "meter_number":     reading.meter_number,
+            "previous_reading": reading.previous_reading,
+            "consumption":      reading.consumption,
+            "last_reading_date": reading.timestamp.isoformat(),
+        }
+
+    async def async_update(self):
+        await self.coordinator.async_request_refresh()
 
 
 class AccountBalanceSensor(SensorEntity):
-    """Water account balance sensor."""
+    """Sensor representing the water account balance."""
 
     def __init__(
         self,
@@ -135,19 +135,23 @@ class AccountBalanceSensor(SensorEntity):
         self.coordinator = coordinator
         self.entry_id = entry_id
 
-        self._attr_unique_id = f"water_balance"
+        # Scoped to entry_id so multiple entries never collide
+        self._attr_unique_id = f"{entry_id}_balance"
         self._attr_name = "Water Account Balance"
         self._attr_native_unit_of_measurement = "PLN"
         self._attr_device_class = SensorDeviceClass.MONETARY
         self._attr_state_class = SensorStateClass.TOTAL
-        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def device_info(self):
+        provider_class = ProviderRegistry.get(self.coordinator.provider_id)
+        manufacturer = (
+            provider_class("", "").info.name if provider_class else "Water Utility"
+        )
         return {
             "identifiers": {(DOMAIN, self.entry_id)},
             "name": "Water Utility",
-            "manufacturer": "WODKAN Krzeszowice",
+            "manufacturer": manufacturer,
             "model": "Account",
         }
 
@@ -158,15 +162,17 @@ class AccountBalanceSensor(SensorEntity):
     @property
     def native_value(self):
         balance = self.coordinator.data.balance
-        if balance is None:
-            return None
-        return balance.amount
+        return balance.amount if balance else None
 
     @property
     def extra_state_attributes(self):
         balance = self.coordinator.data.balance
-        attrs = {}
-        if balance:
-            attrs["status"] = balance.status
-            attrs["currency"] = "PLN"
-        return attrs
+        if not balance:
+            return {}
+        return {
+            "status":   balance.status,
+            "currency": "PLN",
+        }
+
+    async def async_update(self):
+        await self.coordinator.async_request_refresh()

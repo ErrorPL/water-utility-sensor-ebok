@@ -2,19 +2,37 @@
   "config": {
     "step": {
       "user": {
-        "title": "Czujnik WODKAN",
-        "description": "Połącz się ze swoim dostawcą wody",
+        "title": "Czujnik Mediów Wodnych",
+        "description": "Wybierz swojego dostawcę usług wodnych",
         "data": {
-          "username": "Kod klienta",
+          "provider": "Dostawca"
+        }
+      },
+      "credentials": {
+        "title": "Czujnik Mediów Wodnych — {provider_name}",
+        "description": "Wprowadź dane logowania do portalu {provider_name}",
+        "data": {
+          "username": "Kod klienta / Nazwa użytkownika",
           "password": "Hasło"
         }
       }
     },
     "error": {
-      "verify_connection_failed": "Nie można połączyć się z dostawcą wody. Sprawdź dane logowania."
+      "verify_connection_failed": "Nie można połączyć się z portalem dostawcy. Sprawdź dane logowania i spróbuj ponownie.",
+      "unknown_provider": "Wybrany dostawca jest niedostępny."
     },
     "abort": {
-      "already_configured": "To konto jest już skonfigurowane"
+      "already_configured": "To konto jest już skonfigurowane."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Częstotliwość aktualizacji",
+        "data": {
+          "update_interval_hours": "Jak często pobierać nowe odczyty"
+        }
+      }
     }
   }
 }

@@ -13,65 +13,134 @@ from .providers import ProviderRegistry
 _LOGGER = logging.getLogger(__name__)
 
 UPDATE_INTERVAL_OPTIONS = [
-    (1, "1 hour"),
-    (4, "4 hours"),
-    (8, "8 hours"),
+    (1,  "1 hour"),
+    (4,  "4 hours"),
+    (8,  "8 hours"),
     (12, "12 hours"),
     (24, "24 hours"),
 ]
 
 
 class WaterUtilityConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Config flow for water utility sensors."""
+    """Config flow for water utility sensors.
+
+    Step 1 — provider selection (shown only when more than one provider exists).
+    Step 2 — credentials for the chosen provider.
+    """
+
+    def __init__(self):
+        self._provider_id: Optional[str] = None
+
+    # ------------------------------------------------------------------
+    # Step 1 — choose provider
+    # ------------------------------------------------------------------
 
     async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None):
-        """Handle user input - show credentials directly since there's only one provider."""
+        """Show provider selector if multiple providers are registered."""
+        providers = await self.hass.async_add_executor_job(
+            ProviderRegistry.list_providers
+        )
+
+        if len(providers) == 1:
+            # Skip selection when there is only one provider
+            self._provider_id = providers[0].id
+            return await self.async_step_credentials()
+
         errors: Dict[str, str] = {}
 
         if user_input is not None:
-            username = user_input.get(CONF_USERNAME)
-            password = user_input.get(CONF_PASSWORD)
-            provider_id = "wik_krzeszowice"
+            self._provider_id = user_input["provider"]
+            return await self.async_step_credentials()
 
-            if username and password:
-                provider_class = ProviderRegistry.get(provider_id)
-                if provider_class:
-                    try:
-                        _LOGGER.info("Attempting login for user: %s", username)
-                        provider = provider_class(username, password)
-                        login_result = await self.hass.async_add_executor_job(provider.login)
-                        _LOGGER.info("Login result: %s", login_result)
-                        
-                        if not login_result:
-                            errors["base"] = "verify_connection_failed"
-                        else:
-                            await self.async_set_unique_id(f"water_{provider_id}_{username}")
-                            self._abort_if_unique_id_configured()
-                            
-                            return self.async_create_entry(
-                                title=f"WODKAN Krzeszowice Water",
-                                data={
-                                    CONF_USERNAME: username,
-                                    CONF_PASSWORD: password,
-                                    "provider": provider_id
-                                },
-                                options={
-                                    "update_interval_hours": 8,
-                                }
-                            )
-                    except Exception as e:
-                        _LOGGER.exception("Error during config flow: %s", e)
-                        errors["base"] = "verify_connection_failed"
+        provider_choices = {p.id: p.name for p in providers}
 
         return self.async_show_form(
             step_id="user",
+            data_schema=vol.Schema({
+                vol.Required("provider"): vol.In(provider_choices),
+            }),
+            errors=errors,
+        )
+
+    # ------------------------------------------------------------------
+    # Step 2 — credentials
+    # ------------------------------------------------------------------
+
+    async def async_step_credentials(
+        self, user_input: Optional[Dict[str, Any]] = None
+    ):
+        """Collect and validate credentials for the chosen provider."""
+        errors: Dict[str, str] = {}
+
+        if user_input is not None:
+            username = user_input.get(CONF_USERNAME, "").strip()
+            password = user_input.get(CONF_PASSWORD, "")
+
+            if username and password:
+                provider_class = ProviderRegistry.get(self._provider_id)
+                if provider_class:
+                    try:
+                        _LOGGER.info(
+                            "Attempting login for provider=%s user=%s",
+                            self._provider_id, username,
+                        )
+                        provider = provider_class(username, password)
+                        login_ok = await self.hass.async_add_executor_job(
+                            provider.login
+                        )
+                        _LOGGER.info("Login result: %s", login_ok)
+
+                        if not login_ok:
+                            errors["base"] = "verify_connection_failed"
+                        else:
+                            await self.async_set_unique_id(
+                                f"water_{self._provider_id}_{username}"
+                            )
+                            self._abort_if_unique_id_configured()
+
+                            # Derive a human-readable title from provider info
+                            provider_info = provider_class("", "").info
+                            title = f"{provider_info.name} ({username})"
+
+                            return self.async_create_entry(
+                                title=title,
+                                data={
+                                    CONF_USERNAME: username,
+                                    CONF_PASSWORD: password,
+                                    "provider": self._provider_id,
+                                },
+                                options={
+                                    "update_interval_hours": 8,
+                                },
+                            )
+                    except Exception as exc:
+                        _LOGGER.exception(
+                            "Error during config flow for provider=%s: %s",
+                            self._provider_id, exc,
+                        )
+                        errors["base"] = "verify_connection_failed"
+                else:
+                    errors["base"] = "unknown_provider"
+
+        # Fetch provider name for the form description
+        provider_class = ProviderRegistry.get(self._provider_id)
+        provider_name = (
+            provider_class("", "").info.name if provider_class else self._provider_id
+        )
+
+        return self.async_show_form(
+            step_id="credentials",
             data_schema=vol.Schema({
                 vol.Required(CONF_USERNAME): cv.string,
                 vol.Required(CONF_PASSWORD): cv.string,
             }),
             errors=errors,
-            description_placeholders={"error_info": ""},
+            description_placeholders={"provider_name": provider_name},
         )
+
+    # ------------------------------------------------------------------
+    # Options flow
+    # ------------------------------------------------------------------
 
     @staticmethod
     def async_get_options_flow(config_entry):
@@ -79,7 +148,7 @@ class WaterUtilityConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class WaterUtilityOptionsFlow(OptionsFlow):
-    """Options flow for water utility sensor."""
+    """Options flow — update interval only."""
 
     def __init__(self, config_entry):
         self.config_entry = config_entry
@@ -96,7 +165,7 @@ class WaterUtilityOptionsFlow(OptionsFlow):
             data_schema=vol.Schema({
                 vol.Required(
                     "update_interval_hours",
-                    default=current_interval
-                ): vol.In({hours: name for hours, name in UPDATE_INTERVAL_OPTIONS}),
+                    default=current_interval,
+                ): vol.In({hours: label for hours, label in UPDATE_INTERVAL_OPTIONS}),
             }),
         )

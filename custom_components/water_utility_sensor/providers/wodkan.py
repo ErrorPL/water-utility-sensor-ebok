@@ -80,12 +80,12 @@ class WodkanKrzeszowiceProvider(WaterProvider):
             # Format: {'value':'17441','text':'[412/119-01] Rozliczany przez: Wodomierz Nr: 8SEN0122012166 ...'}
             # Use simpler pattern to extract value and meter number
             result = []
-            
+
             # Find all meter entries
             entries = re.findall(r"\{'value':'([^']+)',text:'.*?Nr:\s*([A-Z0-9]+)", text)
             for meter_id, meter_num in entries:
                 result.append((meter_id, meter_num))
-            
+
             # If above didn't work, try alternative
             if not result:
                 # Try extracting ID and full text then parse

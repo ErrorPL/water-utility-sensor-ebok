@@ -1,10 +1,19 @@
 # Water Utility Sensor
 
-Home Assistant integration for scraping water meter data from various water utility providers.
+Home Assistant custom integration for scraping water meter readings and account data from Polish water utility portals.
 
 ## Supported Providers
 
-- **WODKAN Krzeszowice** (ibo.wikkrzeszowice.pl)
+| Provider | Portal | Region |
+|---|---|---|
+| **WODKAN Krzeszowice** | ibo.wikkrzeszowice.pl | Krzeszowice |
+| **KPWIK Kobierzyce** | ebok.kpwik.com | Gmina Kobierzyce |
+
+## What it tracks
+
+- **Water meter reading** (m³) — cumulative total, compatible with HA energy dashboard
+- **Previous reading** and **consumption** since last read — exposed as sensor attributes
+- **Account balance** (PLN) — where the provider portal exposes it
 
 ## Installation
 
@@ -13,33 +22,43 @@ Home Assistant integration for scraping water meter data from various water util
 2. Search for "Water Utility Sensor" and install
 3. Restart Home Assistant
 
-### Manual Installation
-1. Copy `custom_components/water_utility/` to your Home Assistant's `custom_components/` directory
+### Manual
+1. Copy `custom_components/water_utility_sensor/` to your Home Assistant `custom_components/` directory
 2. Restart Home Assistant
 
 ## Configuration
 
-1. Navigate to Settings > Devices & Services > Add Integration
-2. Search for "Water Utility Sensor"
-3. Select your water provider
-4. Enter your IBO portal credentials
+1. Go to **Settings → Devices & Services → Add Integration**
+2. Search for **Water Utility Sensor**
+3. Select your water utility provider
+4. Enter your portal login credentials (client code / username and password)
+
+The update interval defaults to every 8 hours and can be changed under the integration's options.
 
 ## Requirements
 
 - Python 3.10+
-- playwright
-- PyMuPDF
+- `httpx >= 0.25.0` (installed automatically by HA)
 
 ## Development
 
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+pip install httpx pytest pytest-asyncio homeassistant
 
 # Run tests
-pytest
+pytest tests/
 ```
+
+## Adding a new provider
+
+1. Create `custom_components/water_utility_sensor/providers/your_provider.py`
+2. Implement `WaterProvider` (see `providers/__init__.py` for the ABC)
+3. Decorate the class with `@ProviderRegistry.register`
+4. Add the import to `ProviderRegistry._ensure_loaded()` in `providers/__init__.py`
+
+The config flow will automatically include the new provider in the selection list.
 
 ## License
 
-MIT License
+MIT License — see [LICENSE](LICENSE)

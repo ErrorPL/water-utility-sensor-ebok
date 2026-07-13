@@ -3,18 +3,36 @@
     "step": {
       "user": {
         "title": "Water Utility Sensor",
-        "description": "Connect to your water utility provider",
+        "description": "Select your water utility provider",
         "data": {
-          "username": "Client Code",
+          "provider": "Provider"
+        }
+      },
+      "credentials": {
+        "title": "Water Utility Sensor — {provider_name}",
+        "description": "Enter your portal login credentials for {provider_name}",
+        "data": {
+          "username": "Client Code / Username",
           "password": "Password"
         }
       }
     },
     "error": {
-      "verify_connection_failed": "Could not connect to water utility. Please check your credentials."
+      "verify_connection_failed": "Could not connect to the water utility portal. Please check your credentials and try again.",
+      "unknown_provider": "Selected provider is not available."
     },
     "abort": {
-      "already_configured": "This account is already configured"
+      "already_configured": "This account is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update interval",
+        "data": {
+          "update_interval_hours": "How often to fetch new readings"
+        }
+      }
     }
   }
 }

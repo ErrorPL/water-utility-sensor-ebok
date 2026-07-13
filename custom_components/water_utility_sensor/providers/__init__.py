@@ -84,7 +84,8 @@ class ProviderRegistry:
 
     @classmethod
     def _ensure_loaded(cls):
-        """Lazy load providers."""
+        """Lazy load all providers."""
         if not cls._loaded:
-            from .wodkan import WodkanKrzeszowiceProvider
+            from .wodkan import WodkanKrzeszowiceProvider  # noqa: F401
+            from .kpwik import KpwikProvider               # noqa: F401
             cls._loaded = True

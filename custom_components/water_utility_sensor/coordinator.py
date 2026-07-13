@@ -17,11 +17,18 @@ class WaterUtilityData:
     def __init__(self):
         self.readings: Dict[str, WaterReading] = {}
         self.balance: Optional[AccountBalance] = None
-        self.meters: list = []
 
 
 class WaterUtilityCoordinator(DataUpdateCoordinator[WaterUtilityData]):
-    """Coordinator for water utility data."""
+    """Coordinator for water utility data.
+
+    Supports two provider capabilities:
+      - get_all_readings()  — preferred; returns all meters in one call
+                              (used by providers that expose it, e.g. KpwikProvider)
+      - get_current_reading() + _get_meter_ids() fallback
+                              (used by providers that only implement the base ABC,
+                               e.g. WodkanKrzeszowiceProvider)
+    """
 
     def __init__(
         self,
@@ -34,44 +41,59 @@ class WaterUtilityCoordinator(DataUpdateCoordinator[WaterUtilityData]):
         self.username = username
         self.password = password
         self.provider_id = provider_id
-        
+
         super().__init__(
             hass,
             _LOGGER,
-            name="water_utility",
+            name=f"water_utility_{provider_id}",
             update_interval=update_interval,
         )
 
     async def _async_update_data(self) -> WaterUtilityData:
         """Fetch data from the provider."""
         data = WaterUtilityData()
-        
+
         try:
             provider_class = ProviderRegistry.get(self.provider_id)
             if not provider_class:
                 raise UpdateFailed(f"Unknown provider: {self.provider_id}")
 
-            # Run in executor to avoid blocking
             def fetch_data():
                 provider = provider_class(self.username, self.password)
-                
-                # Get meter IDs
-                meters = provider._get_meter_ids()
-                data.meters = meters
-                
-                # Get readings for each meter
-                for meter_id, meter_number in meters:
-                    reading = provider.get_current_reading_for_meter(meter_id)
-                    if reading:
-                        data.readings[meter_number] = reading
-                
-                # Get account balance
+
+                # --- Readings ---
+                # Prefer get_all_readings() when the provider exposes it.
+                # This avoids a separate login + meter-list call per meter.
+                if hasattr(provider, "get_all_readings"):
+                    readings = provider.get_all_readings()
+                    for reading in readings:
+                        data.readings[reading.meter_number] = reading
+                else:
+                    # Fallback: providers that only implement the base interface.
+                    # Try to enumerate meters via _get_meter_ids if available,
+                    # otherwise fall back to a single get_current_reading() call.
+                    if hasattr(provider, "_get_meter_ids"):
+                        meters = provider._get_meter_ids()
+                        for meter_id, meter_number in meters:
+                            reading = provider.get_current_reading_for_meter(meter_id)
+                            if reading:
+                                data.readings[reading.meter_number] = reading
+                    else:
+                        reading = provider.get_current_reading()
+                        if reading:
+                            data.readings[reading.meter_number] = reading
+
+                # --- Balance ---
                 data.balance = provider.get_account_balance()
-                
+
                 return data
 
             result = await self.hass.async_add_executor_job(fetch_data)
             return result
 
-        except Exception as e:
-            raise UpdateFailed(f"Failed to fetch water utility data: {e}") from e
+        except UpdateFailed:
+            raise
+        except Exception as exc:
+            raise UpdateFailed(
+                f"Failed to fetch water utility data for {self.provider_id}: {exc}"
+            ) from exc
