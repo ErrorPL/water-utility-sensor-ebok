@@ -13,7 +13,8 @@
         "description": "Enter your portal login credentials for {provider_name}",
         "data": {
           "username": "Client Code / Username",
-          "password": "Password"
+          "password": "Password",
+          "update_interval_hours": "How often to fetch new readings"
         }
       }
     },

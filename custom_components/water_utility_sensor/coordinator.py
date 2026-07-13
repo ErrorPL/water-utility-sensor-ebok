@@ -36,7 +36,7 @@ class WaterUtilityCoordinator(DataUpdateCoordinator[WaterUtilityData]):
         username: str,
         password: str,
         provider_id: str,
-        update_interval: timedelta = timedelta(hours=8),
+        update_interval: timedelta = timedelta(hours=24),
     ):
         self.username = username
         self.password = password

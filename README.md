@@ -33,7 +33,7 @@ Home Assistant custom integration for scraping water meter readings and account 
 3. Select your water utility provider
 4. Enter your portal login credentials (client code / username and password)
 
-The update interval defaults to every 8 hours and can be changed under the integration's options.
+The update interval defaults to once a day (24 hours) and can be changed under the integration's options.
 
 ## Requirements
 

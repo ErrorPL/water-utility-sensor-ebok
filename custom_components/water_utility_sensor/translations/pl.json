@@ -13,7 +13,8 @@
         "description": "Wprowadź dane logowania do portalu {provider_name}",
         "data": {
           "username": "Kod klienta / Nazwa użytkownika",
-          "password": "Hasło"
+          "password": "Hasło",
+          "update_interval_hours": "Jak często pobierać nowe odczyty"
         }
       }
     },

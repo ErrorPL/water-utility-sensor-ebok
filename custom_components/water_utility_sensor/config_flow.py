@@ -12,12 +12,13 @@ from .providers import ProviderRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
+CONF_UPDATE_INTERVAL_HOURS = "update_interval_hours"
+DEFAULT_UPDATE_INTERVAL_HOURS = 24
+
 UPDATE_INTERVAL_OPTIONS = [
-    (1,  "1 hour"),
-    (4,  "4 hours"),
-    (8,  "8 hours"),
-    (12, "12 hours"),
-    (24, "24 hours"),
+    (8,   "Every 8 hours"),
+    (24,  "Once a day"),
+    (168, "Once a week"),
 ]
 
 
@@ -75,6 +76,9 @@ class WaterUtilityConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             username = user_input.get(CONF_USERNAME, "").strip()
             password = user_input.get(CONF_PASSWORD, "")
+            update_interval_hours = user_input.get(
+                CONF_UPDATE_INTERVAL_HOURS, DEFAULT_UPDATE_INTERVAL_HOURS
+            )
 
             if username and password:
                 provider_class = ProviderRegistry.get(self._provider_id)
@@ -110,7 +114,7 @@ class WaterUtilityConfigFlow(ConfigFlow, domain=DOMAIN):
                                     "provider": self._provider_id,
                                 },
                                 options={
-                                    "update_interval_hours": 8,
+                                    CONF_UPDATE_INTERVAL_HOURS: update_interval_hours,
                                 },
                             )
                     except Exception as exc:
@@ -133,6 +137,10 @@ class WaterUtilityConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required(CONF_USERNAME): cv.string,
                 vol.Required(CONF_PASSWORD): cv.string,
+                vol.Required(
+                    CONF_UPDATE_INTERVAL_HOURS,
+                    default=DEFAULT_UPDATE_INTERVAL_HOURS,
+                ): vol.In({hours: label for hours, label in UPDATE_INTERVAL_OPTIONS}),
             }),
             errors=errors,
             description_placeholders={"provider_name": provider_name},
@@ -158,13 +166,15 @@ class WaterUtilityOptionsFlow(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        current_interval = self.config_entry.options.get("update_interval_hours", 8)
+        current_interval = self.config_entry.options.get(
+            CONF_UPDATE_INTERVAL_HOURS, DEFAULT_UPDATE_INTERVAL_HOURS
+        )
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
                 vol.Required(
-                    "update_interval_hours",
+                    CONF_UPDATE_INTERVAL_HOURS,
                     default=current_interval,
                 ): vol.In({hours: label for hours, label in UPDATE_INTERVAL_OPTIONS}),
             }),

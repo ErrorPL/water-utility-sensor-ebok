@@ -1,5 +1,4 @@
 """Platform for water utility sensor integration."""
-from datetime import timedelta
 import logging
 
 from homeassistant.components.sensor import (
@@ -8,7 +7,7 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, UnitOfVolume
+from homeassistant.const import UnitOfVolume
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
@@ -16,8 +15,6 @@ from .coordinator import WaterUtilityCoordinator
 from .providers import ProviderRegistry
 
 _LOGGER = logging.getLogger(__name__)
-
-DEFAULT_SCAN_INTERVAL = timedelta(hours=8)
 
 
 async def async_setup_entry(
@@ -28,26 +25,9 @@ async def async_setup_entry(
     """Set up water utility sensor platform."""
     _LOGGER.info("Setting up water utility sensor platform for %s", config_entry.entry_id)
 
-    username = config_entry.data[CONF_USERNAME]
-    password = config_entry.data[CONF_PASSWORD]
-    provider_id = config_entry.data.get("provider", "wik_krzeszowice")
-
-    update_interval = timedelta(
-        hours=config_entry.options.get(
-            "update_interval_hours",
-            DEFAULT_SCAN_INTERVAL.total_seconds() / 3600,
-        )
-    )
-
-    coordinator = WaterUtilityCoordinator(
-        hass,
-        username,
-        password,
-        provider_id,
-        update_interval=update_interval,
-    )
-
-    await coordinator.async_config_entry_first_refresh()
+    # The coordinator is created once in __init__.py's async_setup_entry and
+    # shared across every platform (sensor, button) for this config entry.
+    coordinator: WaterUtilityCoordinator = hass.data[DOMAIN][config_entry.entry_id]
 
     entities = []
 
