@@ -31,6 +31,27 @@ _mod("homeassistant.components.sensor",
          "TOTAL_INCREASING": "total_increasing", "TOTAL": "total"})(),
      SensorDeviceClass=type("SensorDeviceClass", (), {
          "WATER": "water", "MONETARY": "monetary"})())
+# homeassistant.components.recorder — the long-term statistics API. The real one is
+# only reachable inside a running HA instance, so record the calls instead: tests can
+# assert on recorder_calls to check what we would have written.
+recorder_calls = []
+
+
+def _async_add_external_statistics(hass, metadata, statistics):
+    recorder_calls.append((metadata, list(statistics)))
+
+
+_mod("homeassistant.components.recorder")
+_mod("homeassistant.components.recorder.models",
+     StatisticData=dict,
+     StatisticMetaData=dict)
+_mod("homeassistant.components.recorder.statistics",
+     async_add_external_statistics=_async_add_external_statistics)
+
+_mod("homeassistant.util")
+_mod("homeassistant.util.dt",
+     start_of_local_day=lambda d: d.replace(hour=0, minute=0, second=0, microsecond=0))
+
 _mod("homeassistant.helpers")
 class _DataUpdateCoordinator:
     """Minimal stub — supports Generic[T] subscript syntax."""
@@ -47,3 +68,5 @@ vol = _mod("voluptuous")
 vol.Schema = lambda s, **kw: s
 vol.Required = lambda k, **kw: k
 vol.In = lambda x: x
+vol.All = lambda *validators: validators[0]
+vol.Coerce = lambda t: t

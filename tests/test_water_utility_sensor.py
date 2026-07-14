@@ -299,6 +299,40 @@ def test_kpwik_parse_meter_row_standard():
     assert reading.timestamp == datetime(2026, 4, 13)
 
 
+def test_kpwik_parse_meter_row_live_layout():
+    """Column layout as captured from the live portal, for both meters.
+
+    Column 14 distinguishes the main meter from the garden deduction sub-meter. That
+    matters: a podlicznik's water also passes through the main meter, so only the main
+    one may become an Energy dashboard water source or consumption is double-counted.
+    """
+    from custom_components.water_utility.providers.kpwik import KpwikProvider
+
+    def row(inst, serial, date, stan, zuzycie, kind):
+        r = [None] * 26
+        r[0], r[2], r[4], r[5], r[6], r[14] = inst, serial, date, stan, zuzycie, kind
+        r[3] = "Bielany Wrocławskie, Cedrowa 23/2"
+        return r
+
+    main = KpwikProvider._parse_meter_row(
+        row("39455", "C23FA094856", "2026-06-18", "       55,00", "        3,00", "Główny")
+    )
+    assert main.meter_number == "C23FA094856"
+    assert main.current_reading == 55.0
+    assert main.consumption == 3.0
+    assert main.previous_reading == pytest.approx(52.0)   # matches history: 15/06 -> 52,00
+    assert main.timestamp == datetime(2026, 6, 18)
+    assert main.meter_type == "Główny"
+    assert main.is_main is True
+
+    sub = KpwikProvider._parse_meter_row(
+        row("43507", "H25KA048738", "2026-06-18", "        9,00", "        2,00", "Podlicznik")
+    )
+    assert sub.current_reading == 9.0
+    assert sub.meter_type == "Podlicznik"
+    assert sub.is_main is False
+
+
 def test_kpwik_parse_meter_row_returns_none_on_bad_data():
     """_parse_meter_row returns None gracefully when the row is malformed."""
     from custom_components.water_utility.providers.kpwik import KpwikProvider
@@ -322,18 +356,53 @@ def test_kpwik_scrape_login_page_extracts_instance():
     assert fields["p_instance"] == "16190976000624"
 
 
-def test_kpwik_scrape_meters_page_finds_ajax_id():
-    """_scrape_meters_page extracts the UkVHSU9O-prefixed ajaxIdentifier."""
+def test_kpwik_scrape_regions_reads_regions_by_static_id():
+    """Regions are looked up by their stable static id, and the token is unescaped.
+
+    The numeric region id and the signed ajaxIdentifier are regenerated every time the
+    portal is republished, so both must come off the page. The ajaxIdentifier is base64
+    containing "/", which APEX writes into its inline JS as the escape \\u002F —
+    submitting the literal backslash form is rejected.
+    """
+    from custom_components.water_utility.providers.kpwik import KpwikProvider
+
+    fake_html = (
+        'apex.widget.templateReportRegionInit({"regionId":"97540451681991867",'
+        '"regionStaticId":"R_AKTYWNE_WODOMIERZE_20","regionType":"Cards",'
+        '"ajaxIdentifier":"UkVHSU9OIFRZUEV-fjk3NTQwNDUx\\u002Fabc123","lazyLoading":true});'
+    )
+
+    regions = KpwikProvider._scrape_regions(fake_html)
+
+    assert set(regions) == {"R_AKTYWNE_WODOMIERZE_20"}
+    region = regions[KpwikProvider.REGION_ACTIVE_METERS]
+    assert region["id"] == "97540451681991867"
+    assert region["ajax_id"] == "UkVHSU9OIFRZUEV-fjk3NTQwNDUx/abc123"
+    assert "\\u002F" not in region["ajax_id"]
+
+
+def test_kpwik_scrape_page_items_collects_values_and_checksums():
+    """Page items are read generically, including <select> filters."""
     from custom_components.water_utility.providers.kpwik import KpwikProvider
 
     fake_html = '''
-    {"id":"97540451681991867",
-     "ajaxIdentifier":"UkVHSU9OIFRZUEV-fjk3NTQwNDUxNjgxOTkxODY3/abc123",
-     "fetchData":{"version":1}}
+    <input type="hidden" name="P20_INFSIECINSTAL_ID" id="P20_INFSIECINSTAL_ID" value="">
+    <input type="hidden" data-for="P20_INFSIECINSTAL_ID" value="CKSUM1">
+    <input type="hidden" name="P0_ZMIENIC" id="P0_ZMIENIC" value="N">
+    <input type="hidden" name="p_flow_id" value="110" id="pFlowId">
+    <select id="P20_WODOMIERZ" name="P20_WODOMIERZ">
+      <option value="" selected="selected">Wszystkie</option>
+      <option value="39455">C23FA094856 | Główny</option>
+    </select>
     '''
 
-    fields = KpwikProvider._scrape_meters_page(fake_html)
-    assert fields["ajax_id"] == "UkVHSU9OIFRZUEV-fjk3NTQwNDUxNjgxOTkxODY3/abc123"
+    values, checksums = KpwikProvider._scrape_page_items(fake_html)
+
+    assert values["P20_INFSIECINSTAL_ID"] == ""
+    assert values["P0_ZMIENIC"] == "N"
+    assert values["P20_WODOMIERZ"] == ""          # <select>, not <input>
+    assert checksums["P20_INFSIECINSTAL_ID"] == "CKSUM1"
+    assert "p_flow_id" not in values              # not a page item
 
 
 def test_kpwik_scrape_login_page_extracts_salt_protected_and_checksums():
@@ -371,6 +440,54 @@ def test_kpwik_scrape_login_page_extracts_salt_protected_and_checksums():
     assert fields["item_values"]["P102_HTTP"] == "https:"
     assert fields["item_values"]["P102_IP"] == "1.2.3.4"
     assert "P102_HTTP" not in fields["item_checksums"]
+
+
+# ---------------------------------------------------------------------------
+# Long-term statistics
+# ---------------------------------------------------------------------------
+
+def test_statistic_is_dated_by_the_reading_not_the_fetch():
+    """A reading must be filed under the date the utility recorded it.
+
+    Readings are entered by hand and can be weeks old by the time we fetch them. If we
+    let HA derive statistics from sensor state instead, all that consumption would land
+    on the day HA happened to poll — a single meaningless spike on the Energy dashboard.
+    """
+    import conftest
+    from custom_components.water_utility.statistics import (
+        async_import_reading,
+        statistic_id_for,
+    )
+
+    conftest.recorder_calls.clear()
+
+    reading = WaterReading(
+        timestamp=datetime(2026, 6, 18),      # the reading's own date
+        current_reading=55.0,
+        previous_reading=52.0,
+        consumption=3.0,
+        meter_number="C23FA094856",
+        meter_type="Główny",
+    )
+    async_import_reading(MagicMock(), "kpwik", reading)
+
+    assert len(conftest.recorder_calls) == 1
+    metadata, stats = conftest.recorder_calls[0]
+
+    assert metadata["statistic_id"] == "water_utility:kpwik_c23fa094856"
+    assert metadata["has_sum"] is True
+    assert metadata["unit_of_measurement"] == "m³"
+
+    assert len(stats) == 1
+    assert stats[0]["start"] == datetime(2026, 6, 18, 0, 0)   # not "now"
+    assert stats[0]["sum"] == 55.0     # cumulative dial reading; HA diffs consecutive sums
+
+
+def test_statistic_id_is_lowercase_and_slugged():
+    """The recorder rejects a statistic_id whose object_id isn't a lowercase slug."""
+    from custom_components.water_utility.statistics import statistic_id_for
+
+    assert statistic_id_for("kpwik", "C23FA094856") == "water_utility:kpwik_c23fa094856"
 
 
 # ---------------------------------------------------------------------------

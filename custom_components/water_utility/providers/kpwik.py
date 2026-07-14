@@ -212,48 +212,158 @@ class KpwikProvider(WaterProvider):
             "item_checksums": item_checksums,
         }
 
+    # Card regions on the wodomierze page, addressed by their APEX static id. The
+    # static ids are set by the application author and survive redeployment; the
+    # numeric region ids and the signed ajaxIdentifier tokens beside them are
+    # regenerated whenever the app is republished, so those must be read off the
+    # page every time rather than hardcoded.
+    REGION_ACTIVE_METERS = "R_AKTYWNE_WODOMIERZE_20"
+    REGION_METER_HISTORY = "R_HISTORIA_WODOMIERZY_20"
+
+    @staticmethod
+    def _js_unescape(text: str) -> str:
+        r"""Decode the \uXXXX escapes APEX emits inside inline JS string literals.
+
+        Matters for ajaxIdentifier, which is base64 and routinely contains "/" —
+        written in the page as /. Sending the literal backslash-u form is
+        rejected by the server."""
+        return re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), text)
+
+    @classmethod
+    def _scrape_regions(cls, html_text: str) -> dict:
+        """Map each card region's static id to its numeric id and ajaxIdentifier."""
+        pattern = re.compile(
+            r'"regionId"\s*:\s*"(\d+)"\s*,\s*"regionStaticId"\s*:\s*"([^"]+)"'
+            r'[^}]*?"ajaxIdentifier"\s*:\s*"([^"]+)"'
+        )
+        return {
+            static_id: {"id": region_id, "ajax_id": cls._js_unescape(ajax_id)}
+            for region_id, static_id, ajax_id in pattern.findall(html_text)
+        }
+
+    @classmethod
+    def _scrape_page_items(cls, html_text: str) -> tuple:
+        """Collect every APEX page item (P0_*, P20_*, ...) with its checksum.
+
+        Values live in <input name="ITEM" value="...">; session-state-protected items
+        additionally carry a sibling <input data-for="ITEM" value="<checksum>">.
+        Reading them generically means we submit whatever the page actually declares,
+        rather than a hand-maintained list that rots silently when the portal changes."""
+        values: dict = {}
+        checksums: dict = {}
+        is_page_item = re.compile(r"^P\d+_")
+
+        for tag in re.findall(r"<input[^>]*>", html_text):
+            value_m = re.search(r'\bvalue="([^"]*)"', tag)
+            value = html.unescape(value_m.group(1)) if value_m else ""
+
+            data_for = re.search(r'\bdata-for="([^"]+)"', tag)
+            if data_for:
+                checksums[data_for.group(1)] = value
+                continue
+
+            name = re.search(r'\bname="([^"]+)"', tag)
+            if name and is_page_item.match(name.group(1)):
+                values[name.group(1)] = value
+
+        # Filter items (P20_WODOMIERZ, P20_PUNKTY) are <select>, not <input>. Submit
+        # the currently selected option — empty means "Wszystkie" (all meters).
+        for select in re.finditer(
+            r'<select[^>]*\bname="(P\d+_[^"]+)"[^>]*>(.*?)</select>', html_text, re.S
+        ):
+            selected = re.search(
+                r'<option[^>]*\bvalue="([^"]*)"[^>]*\bselected\b', select.group(2)
+            )
+            values[select.group(1)] = (
+                html.unescape(selected.group(1)) if selected else ""
+            )
+
+        return values, checksums
+
     @classmethod
     def _scrape_meters_page(cls, html_text: str) -> dict:
-        """Extract the APEX region ajaxIdentifier and page-item checksums
-        needed to fetch the meter list from the wodomierze (meters) page."""
+        """Extract everything needed to issue a region-fetch AJAX call against a page.
 
-        def _find(pattern, text, group=1, default=""):
-            m = re.search(pattern, text)
-            return m.group(group) if m else default
-
-        # Region ID for the active meters card view
-        region_id = _find(r'"id"\s*:\s*"(9754\d+)"', html_text)
-
-        # ajaxIdentifier is a server-signed token for the region fetch
-        ajax_id = _find(
-            r'"id"\s*:\s*"9754[^"]*"[^}]*"ajaxIdentifier"\s*:\s*"([^"]+)"',
-            html_text,
-        )
-        if not ajax_id:
-            # Broader fallback: first ajaxIdentifier that looks like a region token
-            ajax_id = _find(r'"ajaxIdentifier"\s*:\s*"(UkVHSU9O[^"]+)"', html_text)
-
-        # Checksum for P20_INFSIECINSTAL_ID (the only checksummed item on this page).
-        # Same plain-hidden-input pattern confirmed on the login page: a sibling
-        # <input data-for="P20_INFSIECINSTAL_ID" value="..."> holds the checksum,
-        # not inline JSON text.
-        ck_instal = (
-            cls._find_input_value(html_text, "data-for", "P20_INFSIECINSTAL_ID") or ""
-        )
-
-        # Protected HMAC for the page's form region — plain hidden input.
-        protected = cls._find_input_value(html_text, "id", "pPageItemsProtected") or ""
-
-        # Salt / submission nonce — plain hidden input.
-        salt = cls._find_input_value(html_text, "id", "pSalt") or ""
-
+        Works for any APEX page, not just wodomierze — the meter-history page reached
+        via the card's "Pokaż" link is scraped the same way."""
+        values, checksums = cls._scrape_page_items(html_text)
         return {
-            "region_id": region_id,
-            "ajax_id": ajax_id,
-            "ck_instal": ck_instal,
-            "protected": protected,
-            "salt": salt,
+            "regions": cls._scrape_regions(html_text),
+            "item_values": values,
+            "item_checksums": checksums,
+            "protected": cls._find_input_value(html_text, "id", "pPageItemsProtected") or "",
+            "salt": cls._find_input_value(html_text, "id", "pSalt") or "",
+            # pContext already embeds the session, e.g. "e/wodomierze/6587303858507"
+            "context": cls._find_input_value(html_text, "id", "pContext") or "",
+            "flow_step_id": cls._find_input_value(html_text, "id", "pFlowStepId") or "",
         }
+
+    def _fetch_region_on(
+        self,
+        page_html: str,
+        context: str,
+        flow_step_id: str,
+        region_static_id: str,
+        max_rows: int = 500,
+    ) -> list:
+        """Run an APEX region-fetch against an already-loaded page.
+
+        Returns the region's raw rows (a list of column-value arrays).
+        """
+        fields = self._scrape_meters_page(page_html)
+        region = fields["regions"].get(region_static_id)
+        if not region:
+            _LOGGER.error(
+                "KPWIK: region %s not on page (found: %s)",
+                region_static_id,
+                ", ".join(fields["regions"]) or "none",
+            )
+            return []
+
+        # Submit every page item the page declares, each with its checksum where it
+        # has one. The server validates the set against `protected`.
+        items_to_submit = []
+        for name, value in fields["item_values"].items():
+            item = {"n": name, "v": value}
+            ck = fields["item_checksums"].get(name)
+            if ck:
+                item["ck"] = ck
+            items_to_submit.append(item)
+
+        p_json = {
+            "regions": [
+                {
+                    "id": region["id"],
+                    "ajaxIdentifier": region["ajax_id"],
+                    "fetchData": {"version": 1, "firstRow": 1, "maxRows": max_rows},
+                }
+            ],
+            "pageItems": {
+                "itemsToSubmit": items_to_submit,
+                "protected": fields["protected"],
+                "rowVersion": "",
+                "formRegionChecksums": [],
+            },
+            "salt": fields["salt"],
+        }
+
+        resp = self._session.post(
+            f"{APEX_BASE}/wwv_flow.ajax",
+            params={"p_context": context},
+            data={
+                "p_flow_id":      "110",
+                "p_flow_step_id": flow_step_id,
+                "p_instance":     self._p_instance,
+                "p_debug":        "",
+                "p_json":         json.dumps(p_json, separators=(",", ":")),
+            },
+            headers={
+                **self._AJAX_HEADERS,
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()["regions"][0]["fetchedData"]["values"]
 
     # ------------------------------------------------------------------
     # Public interface
@@ -398,97 +508,63 @@ class KpwikProvider(WaterProvider):
             return True
         return self.login()
 
-    def _fetch_meter_list(self) -> list:
-        """
-        POST to the wodomierze (meters) APEX page to retrieve the list of
-        active meters with their latest readings.
+    def _get_meters_page(self) -> Optional[str]:
+        """Fetch the wodomierze page HTML with the authenticated session.
 
-        Returns a list of raw column-value arrays from the APEX JSON response.
-        """
+        Deliberately no `clear=RP,20` here. That parameter asks APEX to reset page
+        items, which Session State Protection only permits on a URL carrying a valid
+        `cs=` checksum. Without one the server discards the whole page and renders
+        "Naruszenie ochrony stanu sesji" instead — an error page with no regions on
+        it, which is why the region fetch used to find no ajaxIdentifier."""
+        resp = self._session.get(
+            f"{APEX_BASE}/r/ebok/e/wodomierze",
+            params={"session": self._p_instance},
+        )
+        resp.raise_for_status()
+        if "Naruszenie ochrony stanu sesji" in resp.text:
+            _LOGGER.error("KPWIK: meters page rejected by APEX session-state protection")
+            return None
+        return resp.text
+
+    def _fetch_region(self, region_static_id: str, max_rows: int = 500) -> list:
+        """Fetch a region on the wodomierze page. Returns its raw rows."""
         if not self._ensure_session():
             return []
 
         try:
-            # Load the meters page to pick up a fresh ajaxIdentifier + checksums
-            resp = self._session.get(
-                f"{APEX_BASE}/r/ebok/e/wodomierze",
-                params={"clear": "RP,20", "session": self._p_instance},
-            )
-            resp.raise_for_status()
-            page_fields = self._scrape_meters_page(resp.text)
-
-            if not page_fields["ajax_id"]:
-                _LOGGER.error("KPWIK: could not find ajaxIdentifier on meters page")
+            page = self._get_meters_page()
+            if page is None:
                 return []
-
-            # Build the region-fetch AJAX request
-            p_json = {
-                "regions": [
-                    {
-                        "id": page_fields["region_id"],
-                        "ajaxIdentifier": page_fields["ajax_id"],
-                        "fetchData": {
-                            "version": 1,
-                            "firstRow": 1,
-                            "maxRows": 100,
-                        },
-                    }
-                ],
-                "pageItems": {
-                    "itemsToSubmit": [
-                        {
-                            "n": "P20_INFSIECINSTAL_ID",
-                            "v": "",
-                            **({"ck": page_fields["ck_instal"]}
-                               if page_fields["ck_instal"] else {}),
-                        },
-                        {"n": "P20_PUNKTY",     "v": ""},
-                        {"n": "P20_WODOMIERZ",  "v": ""},
-                    ],
-                    "protected": page_fields["protected"],
-                    "rowVersion": "",
-                    "formRegionChecksums": [],
-                },
-                "salt": page_fields["salt"],
-            }
-
-            ajax_resp = self._session.post(
-                f"{APEX_BASE}/wwv_flow.ajax"
-                f"?p_context=e/wodomierze/{self._p_instance}",
-                data={
-                    "p_flow_id":      "110",
-                    "p_flow_step_id": "20",
-                    "p_instance":     self._p_instance,
-                    "p_debug":        "",
-                    "p_json":         json.dumps(p_json, separators=(",", ":")),
-                },
-                headers={
-                    **self._AJAX_HEADERS,
-                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                },
+            fields = self._scrape_meters_page(page)
+            return self._fetch_region_on(
+                page,
+                fields["context"],
+                fields["flow_step_id"],
+                region_static_id,
+                max_rows,
             )
-            ajax_resp.raise_for_status()
-            data = ajax_resp.json()
-            return data["regions"][0]["fetchedData"]["values"]
-
         except Exception:
-            _LOGGER.exception("KPWIK: error fetching meter list")
+            _LOGGER.exception("KPWIK: error fetching region %s", region_static_id)
             return []
+
+    def _fetch_meter_list(self) -> list:
+        """Active meters with their latest readings."""
+        return self._fetch_region(self.REGION_ACTIVE_METERS)
 
     @staticmethod
     def _parse_meter_row(row: list) -> Optional[WaterReading]:
         """
         Parse one row from the meter-list APEX response.
 
-        Column layout (0-based, from HAR analysis):
-          0  — installation ID (int as string)
-          1  — JS dialog opener (ignored)
-          2  — meter serial number  e.g. "C23FA094856"
+        Column layout (0-based), verified against live data from the portal:
+          0  — installation ID            e.g. "39455"
+          1  — JS dialog opener for the per-meter readings page (ignored here)
+          2  — meter serial number        e.g. "C23FA094856"
           3  — address string
-          4  — last reading date  "YYYY-MM-DD"
-          5  — current meter reading (m³, string with whitespace + comma decimal)
-          6  — last consumption (m³, string with whitespace + comma decimal)
-          14 — meter type  "Zwykły"
+          4  — last reading date          "YYYY-MM-DD"
+          5  — current meter reading      (m³, whitespace-padded, comma decimal)
+          6  — consumption since previous (m³, whitespace-padded, comma decimal)
+          14 — meter type                 "Główny" or "Podlicznik"
         """
         try:
             def _float(val) -> float:
@@ -497,10 +573,11 @@ class KpwikProvider(WaterProvider):
                 return float(str(val).strip().replace(",", ".").replace(" ", ""))
 
             meter_number = str(row[2]).strip()
-            date_str     = str(row[4]).strip()          # "2026-04-13"
-            current      = _float(row[5])               # 23.00
-            consumption  = _float(row[6])               # 4.00
-            previous     = current - consumption        # derived
+            date_str     = str(row[4]).strip()          # "2026-06-18"
+            current      = _float(row[5])               # 55.00
+            consumption  = _float(row[6])               # 3.00
+            previous     = current - consumption        # 52.00
+            meter_type   = str(row[14] or "").strip()   # "Główny" / "Podlicznik"
 
             timestamp = datetime.strptime(date_str, "%Y-%m-%d") if date_str else datetime.now()
 
@@ -510,6 +587,7 @@ class KpwikProvider(WaterProvider):
                 previous_reading=previous,
                 consumption=consumption,
                 meter_number=meter_number,
+                meter_type=meter_type,
             )
         except Exception:
             _LOGGER.exception("KPWIK: failed to parse meter row: %s", row)

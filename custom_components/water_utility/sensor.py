@@ -98,6 +98,8 @@ class WaterMeterSensor(SensorEntity):
             "previous_reading": reading.previous_reading,
             "consumption":      reading.consumption,
             "last_reading_date": reading.timestamp.isoformat(),
+            "meter_type":       reading.meter_type,
+            "is_main_meter":    reading.is_main,
         }
 
     async def async_update(self):

@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .providers import ProviderRegistry, WaterReading, AccountBalance
+from .statistics import async_import_reading
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +90,14 @@ class WaterUtilityCoordinator(DataUpdateCoordinator[WaterUtilityData]):
                 return data
 
             result = await self.hass.async_add_executor_job(fetch_data)
+
+            # File each reading under the date the utility recorded it, not the time
+            # we happened to fetch it — otherwise weeks of consumption pile up on a
+            # single day in the Energy dashboard. Safe to repeat: writing the same
+            # statistic_id and hour overwrites rather than accumulates.
+            for reading in result.readings.values():
+                async_import_reading(self.hass, self.provider_id, reading)
+
             return result
 
         except UpdateFailed:

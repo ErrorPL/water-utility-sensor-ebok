@@ -7,12 +7,26 @@ from typing import Optional
 
 @dataclass
 class WaterReading:
-    """Water meter reading."""
+    """Water meter reading.
+
+    `timestamp` is the date the utility recorded the reading — not the time we
+    fetched it. The two can be weeks apart, and statistics must be filed under the
+    former or consumption lands on the wrong day.
+    """
     timestamp: datetime
     current_reading: float
     previous_reading: float
     consumption: float
     meter_number: str = ""
+    # "Główny" (main) or "Podlicznik" (deduction sub-meter). Sub-meter water also
+    # flows through the main meter, so only the main one may be used as an Energy
+    # dashboard water source — counting both would double the reported consumption.
+    meter_type: str = ""
+
+    @property
+    def is_main(self) -> bool:
+        """False for a deduction sub-meter (podlicznik)."""
+        return self.meter_type.strip().lower() != "podlicznik"
 
 
 @dataclass
