@@ -21,6 +21,14 @@ UPDATE_INTERVAL_OPTIONS = [
     (168, "Once a week"),
 ]
 
+# The frontend hands the selected radio value back as a string, so validating it
+# straight against the integer keys fails with "value must be one of [8, 24, 168]"
+# on any re-render of the form (e.g. after a failed login). Coerce before checking.
+UPDATE_INTERVAL_SELECTOR = vol.All(
+    vol.Coerce(int),
+    vol.In({hours: label for hours, label in UPDATE_INTERVAL_OPTIONS}),
+)
+
 
 class WaterUtilityConfigFlow(ConfigFlow, domain=DOMAIN):
     """Config flow for water utility sensors.
@@ -140,7 +148,7 @@ class WaterUtilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_UPDATE_INTERVAL_HOURS,
                     default=DEFAULT_UPDATE_INTERVAL_HOURS,
-                ): vol.In({hours: label for hours, label in UPDATE_INTERVAL_OPTIONS}),
+                ): UPDATE_INTERVAL_SELECTOR,
             }),
             errors=errors,
             description_placeholders={"provider_name": provider_name},
@@ -176,6 +184,6 @@ class WaterUtilityOptionsFlow(OptionsFlow):
                 vol.Required(
                     CONF_UPDATE_INTERVAL_HOURS,
                     default=current_interval,
-                ): vol.In({hours: label for hours, label in UPDATE_INTERVAL_OPTIONS}),
+                ): UPDATE_INTERVAL_SELECTOR,
             }),
         )

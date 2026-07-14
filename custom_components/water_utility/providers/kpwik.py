@@ -1,4 +1,5 @@
 """KPWIK (Kobierzyckie Przedsiębiorstwo Wodociągów i Kanalizacji) water utility provider."""
+import base64
 import html
 import json
 import logging
@@ -6,6 +7,7 @@ import re
 import ssl
 from datetime import datetime
 from typing import Optional, List
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import certifi
 import httpx
@@ -326,31 +328,69 @@ class KpwikProvider(WaterProvider):
             )
             resp.raise_for_status()
 
-            # Verify we are authenticated: the session cookie must be present
-            # and the response must not redirect back to the login page
-            session_cookie = client.cookies.get("ORA_WWV_APP_110")
-            if not session_cookie:
-                _LOGGER.error("KPWIK: login failed — no session cookie received")
+            # wwv_flow.accept answers with {"redirectURL": "..."} rather than an HTTP
+            # redirect. That URL is the only place the post-login session id appears:
+            # APEX rotates the id on successful authentication, so the pre-login
+            # p_instance is dead from here on and must not be reused.
+            #
+            # The ORA_WWV_APP_110 cookie is set even for a *rejected* login, so its
+            # presence proves nothing — the redirect target is what tells us whether
+            # we actually got in.
+            redirect_url = ""
+            try:
+                redirect_url = resp.json().get("redirectURL", "")
+            except ValueError:
+                pass
+
+            if not redirect_url:
+                _LOGGER.error(
+                    "KPWIK: login failed — no redirectURL in the response to the "
+                    "credential POST (status %s)", resp.status_code
+                )
                 return False
 
-            # Quick sanity-check: fetch the dashboard page
-            dash = client.get(
-                f"{APEX_BASE}/r/ebok/e/podsumowanie",
-                params={"session": p_instance},
-            )
+            if "logowanie" in redirect_url:
+                _LOGGER.error(
+                    "KPWIK: login rejected by the portal: %s",
+                    self._decode_notification(redirect_url) or "credentials refused",
+                )
+                return False
+
+            # Follow the redirect and adopt the new session id it carries.
+            dash = client.get(urljoin(BASE_URL, redirect_url))
             if "logowanie" in dash.url.path:
                 _LOGGER.error("KPWIK: login failed — redirected back to login page")
                 return False
 
+            new_instance = parse_qs(urlparse(str(dash.url)).query).get("session", [""])[0]
             self._session = client
-            self._p_instance = p_instance
-            _LOGGER.info("KPWIK: login successful, p_instance=%s", p_instance)
+            self._p_instance = new_instance or p_instance
+            _LOGGER.info("KPWIK: login successful, p_instance=%s", self._p_instance)
             return True
 
         except Exception:
             _LOGGER.exception("KPWIK: login error")
             client.close()
             return False
+
+    @staticmethod
+    def _decode_notification(redirect_url: str) -> str:
+        """Pull the human-readable reason out of a rejected login's redirect URL.
+
+        APEX puts it in a `notification_msg` query parameter as base64 with a
+        trailing HMAC, e.g. "Identyfikator lub hasło jest nieprawidłowe"."""
+        raw = parse_qs(urlparse(redirect_url).query).get("notification_msg", [""])[0]
+        if not raw:
+            return ""
+        # APEX appends a "/"-separated HMAC to the base64url payload. Both halves are
+        # base64url (no "+" or "/"), so splitting on the first "/" is unambiguous.
+        payload = raw.split("/")[0]
+        try:
+            return base64.b64decode(
+                payload + "=" * (-len(payload) % 4), altchars=b"-_"
+            ).decode("utf-8", "replace")
+        except Exception:
+            return ""
 
     def _ensure_session(self) -> bool:
         """Return True if a valid session exists, otherwise attempt login."""
