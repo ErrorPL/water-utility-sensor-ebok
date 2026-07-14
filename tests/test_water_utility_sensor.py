@@ -1,10 +1,11 @@
 """Tests for Water Utility Sensor integration."""
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
-from custom_components.water_utility_sensor.providers import (
+from custom_components.water_utility.providers import (
     WaterReading,
     AccountBalance,
     ProviderRegistry,
@@ -110,7 +111,7 @@ def test_account_balance_dataclass():
 @pytest.mark.asyncio
 async def test_coordinator_fetches_all_readings():
     """Coordinator calls get_all_readings() when available."""
-    from custom_components.water_utility_sensor.coordinator import (
+    from custom_components.water_utility.coordinator import (
         WaterUtilityCoordinator,
         WaterUtilityData,
     )
@@ -155,7 +156,7 @@ async def test_coordinator_fetches_all_readings():
 @pytest.mark.asyncio
 async def test_coordinator_falls_back_to_get_current_reading():
     """Coordinator falls back to get_current_reading() for basic providers."""
-    from custom_components.water_utility_sensor.coordinator import WaterUtilityData
+    from custom_components.water_utility.coordinator import WaterUtilityData
 
     class BasicProvider(WaterProvider):
         @property
@@ -190,7 +191,7 @@ async def test_coordinator_falls_back_to_get_current_reading():
 
 def _make_coordinator_with_data():
     """Build a minimal coordinator mock populated with test data."""
-    from custom_components.water_utility_sensor.coordinator import WaterUtilityData
+    from custom_components.water_utility.coordinator import WaterUtilityData
 
     data = WaterUtilityData()
     data.readings["WM12345"] = WaterReading(
@@ -210,14 +211,14 @@ def _make_coordinator_with_data():
 
 
 def test_water_meter_sensor_native_value():
-    from custom_components.water_utility_sensor.sensor import WaterMeterSensor
+    from custom_components.water_utility.sensor import WaterMeterSensor
     coordinator = _make_coordinator_with_data()
     sensor = WaterMeterSensor(coordinator, "WM12345", "entry_abc")
     assert sensor.native_value == 150.5
 
 
 def test_water_meter_sensor_attributes():
-    from custom_components.water_utility_sensor.sensor import WaterMeterSensor
+    from custom_components.water_utility.sensor import WaterMeterSensor
     coordinator = _make_coordinator_with_data()
     sensor = WaterMeterSensor(coordinator, "WM12345", "entry_abc")
     attrs = sensor.extra_state_attributes
@@ -227,7 +228,7 @@ def test_water_meter_sensor_attributes():
 
 
 def test_water_meter_sensor_unique_id_scoped_to_entry():
-    from custom_components.water_utility_sensor.sensor import WaterMeterSensor
+    from custom_components.water_utility.sensor import WaterMeterSensor
     coordinator = _make_coordinator_with_data()
     s1 = WaterMeterSensor(coordinator, "WM12345", "entry_abc")
     s2 = WaterMeterSensor(coordinator, "WM12345", "entry_xyz")
@@ -239,7 +240,7 @@ def test_water_meter_sensor_unique_id_scoped_to_entry():
 
 
 def test_water_meter_sensor_unavailable_when_coordinator_fails():
-    from custom_components.water_utility_sensor.sensor import WaterMeterSensor
+    from custom_components.water_utility.sensor import WaterMeterSensor
     coordinator = _make_coordinator_with_data()
     coordinator.last_update_success = False
     sensor = WaterMeterSensor(coordinator, "WM12345", "entry_abc")
@@ -247,21 +248,21 @@ def test_water_meter_sensor_unavailable_when_coordinator_fails():
 
 
 def test_account_balance_sensor_native_value():
-    from custom_components.water_utility_sensor.sensor import AccountBalanceSensor
+    from custom_components.water_utility.sensor import AccountBalanceSensor
     coordinator = _make_coordinator_with_data()
     sensor = AccountBalanceSensor(coordinator, "entry_abc")
     assert sensor.native_value == 125.50
 
 
 def test_account_balance_sensor_attributes():
-    from custom_components.water_utility_sensor.sensor import AccountBalanceSensor
+    from custom_components.water_utility.sensor import AccountBalanceSensor
     coordinator = _make_coordinator_with_data()
     sensor = AccountBalanceSensor(coordinator, "entry_abc")
     assert sensor.extra_state_attributes["status"] == "niedopłata"
 
 
 def test_account_balance_sensor_unique_id_scoped_to_entry():
-    from custom_components.water_utility_sensor.sensor import AccountBalanceSensor
+    from custom_components.water_utility.sensor import AccountBalanceSensor
     coordinator = _make_coordinator_with_data()
     s1 = AccountBalanceSensor(coordinator, "entry_abc")
     s2 = AccountBalanceSensor(coordinator, "entry_xyz")
@@ -276,7 +277,7 @@ def test_account_balance_sensor_unique_id_scoped_to_entry():
 
 def test_kpwik_parse_meter_row_standard():
     """_parse_meter_row correctly handles normal HAR-observed data."""
-    from custom_components.water_utility_sensor.providers.kpwik import KpwikProvider
+    from custom_components.water_utility.providers.kpwik import KpwikProvider
 
     row = [
         "39455",                          # col 0  installation ID
@@ -300,7 +301,7 @@ def test_kpwik_parse_meter_row_standard():
 
 def test_kpwik_parse_meter_row_returns_none_on_bad_data():
     """_parse_meter_row returns None gracefully when the row is malformed."""
-    from custom_components.water_utility_sensor.providers.kpwik import KpwikProvider
+    from custom_components.water_utility.providers.kpwik import KpwikProvider
 
     assert KpwikProvider._parse_meter_row([]) is None
     assert KpwikProvider._parse_meter_row(["x", "y"]) is None
@@ -308,7 +309,7 @@ def test_kpwik_parse_meter_row_returns_none_on_bad_data():
 
 def test_kpwik_scrape_login_page_extracts_instance():
     """_scrape_login_page pulls p_instance from an embedded JS snippet."""
-    from custom_components.water_utility_sensor.providers.kpwik import KpwikProvider
+    from custom_components.water_utility.providers.kpwik import KpwikProvider
 
     fake_html = '''
     <script>
@@ -323,7 +324,7 @@ def test_kpwik_scrape_login_page_extracts_instance():
 
 def test_kpwik_scrape_meters_page_finds_ajax_id():
     """_scrape_meters_page extracts the UkVHSU9O-prefixed ajaxIdentifier."""
-    from custom_components.water_utility_sensor.providers.kpwik import KpwikProvider
+    from custom_components.water_utility.providers.kpwik import KpwikProvider
 
     fake_html = '''
     {"id":"97540451681991867",
@@ -344,7 +345,7 @@ def test_kpwik_scrape_login_page_extracts_salt_protected_and_checksums():
     never matched anything on the real page, so every login attempt was
     rejected with an APEX "Page protection violation" error.
     """
-    from custom_components.water_utility_sensor.providers.kpwik import KpwikProvider
+    from custom_components.water_utility.providers.kpwik import KpwikProvider
 
     fake_html = '''
     <form>
@@ -370,3 +371,69 @@ def test_kpwik_scrape_login_page_extracts_salt_protected_and_checksums():
     assert fields["item_values"]["P102_HTTP"] == "https:"
     assert fields["item_values"]["P102_IP"] == "1.2.3.4"
     assert "P102_HTTP" not in fields["item_checksums"]
+
+
+# ---------------------------------------------------------------------------
+# KPWIK login-page scraping, against a capture of the real portal
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def kpwik_login_html():
+    """A verbatim capture of GET /apex/r/ebok/e/logowanie (APEX 22.2)."""
+    return (Path(__file__).parent / "fixtures" / "kpwik_login_page.html").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_kpwik_scrape_real_login_page_unescapes_protected(kpwik_login_html):
+    """pPageItemsProtected must be HTML-unescaped before it is submitted.
+
+    APEX emits this HMAC as standard base64, so it can contain "/" — which the
+    page renders as the entity `&#x2F;`. Submitting the escaped form corrupts the
+    token and the server rejects the login with a checksum error. (The per-item
+    `ck` checksums are base64url and contain no "/", which is why they worked and
+    masked this bug.)
+    """
+    from custom_components.water_utility.providers.kpwik import KpwikProvider
+
+    fields = KpwikProvider._scrape_login_page(kpwik_login_html)
+
+    assert "&#x2F;" not in fields["protected"]
+    assert "&#" not in fields["protected"]
+    assert fields["protected"].startswith("UDEwMl9OQVpXQTpQMTAyX1dMQVNDSUNJRUw/_Vj11")
+
+
+def test_kpwik_scrape_real_login_page_reads_page_submission_id(kpwik_login_html):
+    """p_page_submission_id is rendered on the page and must be echoed back.
+
+    It used to be fabricated from random digits, which APEX rejects — it uses the
+    value for duplicate-submission detection.
+    """
+    from custom_components.water_utility.providers.kpwik import KpwikProvider
+
+    fields = KpwikProvider._scrape_login_page(kpwik_login_html)
+
+    assert fields["page_submission_id"] == "1373996516269001844899413184230995616"
+
+
+def test_kpwik_scrape_real_login_page_reads_instance_and_salt(kpwik_login_html):
+    """p_instance comes from the pInstance hidden input, not from inline JSON."""
+    from custom_components.water_utility.providers.kpwik import KpwikProvider
+
+    fields = KpwikProvider._scrape_login_page(kpwik_login_html)
+
+    assert fields["p_instance"] == "17539542041269"
+    assert fields["salt"] == "1373996516269001844899413184230995616"
+
+
+def test_kpwik_scrape_real_login_page_reads_items_and_checksums(kpwik_login_html):
+    """Both protected items carry a checksum, and Polish diacritics survive intact."""
+    from custom_components.water_utility.providers.kpwik import KpwikProvider
+
+    fields = KpwikProvider._scrape_login_page(kpwik_login_html)
+
+    assert set(fields["item_checksums"]) == {"P102_NAZWA", "P102_WLASCICIEL"}
+    assert fields["item_values"]["P102_NAZWA"] == "eBOK"
+    assert fields["item_values"]["P102_WLASCICIEL"].startswith(
+        "Kobierzyckie Przedsiębiorstwo Wodociągów"
+    )

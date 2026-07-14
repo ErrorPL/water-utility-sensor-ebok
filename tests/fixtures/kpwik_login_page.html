@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html class="no-js  page-102 app-E" lang="pl" >
+<head>
+  <meta http-equiv="x-ua-compatible" content="IE=edge" />
+  <meta charset="utf-8">
+  <title>Logowanie | eBOK</title>
+  <base href="/apex/" />
+<link rel="stylesheet" href="/i/app_ui/css/Core.min.css?v=22.2.0" type="text/css" />
+<link rel="stylesheet" href="/i/app_ui/css/Theme-Standard.min.css?v=22.2.0" type="text/css" />
+
+  <link rel="stylesheet" href="/i/libraries/font-apex/2.2.1/css/font-apex.min.css?v=22.2.0" type="text/css" />
+<link rel="stylesheet" href="/i/themes/theme_42/22.2/css/Core.min.css?v=22.2.0" type="text/css" />
+
+  
+  <link rel="stylesheet" href="/i/libraries/oracle-fonts/oraclesans-apex.min.css?v=22.2.0" type="text/css" />
+<link rel="stylesheet" href="/i/themes/theme_42/22.2/css/Redwood.min.css?v=22.2.0" type="text/css" />
+<link rel="stylesheet" href="r/ebok/110/files/static/v1491/general.min.css" type="text/css" />
+<link rel="stylesheet" href="r/ebok/110/files/static/v1491/components.min.css" type="text/css" />
+
+  
+  <style type="text/css">
+.t-Login-logo { 
+    display: none !important; 
+    height: 0 !important; 
+}
+
+.t-Login-header { 
+    padding: 0 !important;
+    margin: 0 !important; 
+    font-size: 80%; 
+}
+
+.t-Login-region { 
+    background-color: #FFFFFF; 
+    text-align: center !important; 
+    padding: 0 20px 0 20px; 
+    margin: 0 auto 0 auto; 
+}
+
+.switch-container {
+    font-size: .8rem;
+    align-items: start !important;
+    margin-bottom: 5px;
+}
+
+.gdpr-details {
+    font-size: .8rem;
+    text-align: justify !important; 
+    list-style-position: outside;
+}
+
+.gdpr-summary {
+    font-size: .8rem; 
+}
+
+.gdpr-summary:hover{
+    cursor: pointer;
+}
+
+
+ul.t-Tabs { 
+    display: flex; 
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap; 
+    /* text-align: center; */
+    /*margin: 0 auto;*/ 
+}
+
+.img_logo { 
+    margin: 0 auto 0 auto; 
+    background: none; 
+    border-color: transparent; 
+    background-color: transparent; 
+    max-height: 40px; 
+    width: auto; 
+    opacity: 1; 
+}
+
+.center_item { 
+    display: flex; 
+    justify-content: center; 
+}
+
+.t-LoginPage--split .t-Login-container { 
+  background-color: rgba(255, 255, 255) !important; 
+}
+
+
+</style>
+
+  <link rel="apple-touch-icon" href="r/ebok/110/files/static/v1491/icons/app-icon-192.png" /><link rel="icon" href="r/ebok/110/files/static/v1491/icons/app-icon-32.png" />
+  <meta name="version" content="5.23.10.5"/>
+<meta name="description" content="Elektroniczne Biuro Obsługi Klienta Kobierzyckie Przedsiębiorstwo Wodociągów i Kanalizacji Spółka z ograniczoną odpowiedzialnością"/>
+<meta name="keywords" content="Elektroniczne Biuro Obsługi Klienta, eBOK, Kobierzyckie Przedsiębiorstwo Wodociągów i Kanalizacji Spółka z ograniczoną odpowiedzialnością, Unisoft, ZSI, mBOK, iBOK, Internetowe Biuro Obsługi Klienta" />
+<meta name="robots" content="all" />
+<script>
+  window.addEventListener('online', function () {
+    apex.message.showPageSuccess('Jesteś połączony z Internetem');
+  });
+  window.addEventListener('offline', function () {
+    $('#t_Alert_Success').remove();
+    apex.message.clearErrors();
+    apex.message.showErrors([
+      {
+        type: 'error',
+        location: 'page',
+        message: 'Nie masz połączenia z Internetem',
+      },
+    ]);
+  });
+</script>
+<script type="text/javascript">
+  function googleTranslateElementInit() {
+    new google.translate.TranslateElement(
+      {
+        pageLanguage: 'pl',
+        autoDisplay: false,
+        includedLanguages: 'en,fr,de,uk,pl',
+        layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+      },
+      'google_translate_element'
+    );
+  }
+</script>
+<style type="text/css">
+  @font-face { 
+    font-display: block;
+    font-family: mr;
+    src: url("r/ebok/110/files/static/v1491/mr.woff") format("woff"), url("r/ebok/110/files/static/v1491/mr.otf") format("otf"), url("r/ebok/110/files/static/v1491/mr.eot") format("eot"), url("r/ebok/110/files/static/v1491/mr.eot?#iefix") format("embedded-opentype"), url("r/ebok/110/files/static/v1491/mr.woff2") format("woff2"), url("r/ebok/110/files/static/v1491/mr.ttf") format("truetype"), url("r/ebok/110/files/static/v1491/mr.svg") format("svg"); }  
+  body { font-family: mr !important; }  
+  .t-ContentBlock--h1>.t-ContentBlock-header, .t-ContentBlock--h2>.t-ContentBlock-header { --ut-content-block-header-font-weight: 600 !important; font-family: mr !important; --ut-content-block-header-font-family: mr !important; }  
+  .ui-widget { font-family: mr !important; }
+  .a-TreeView-badge { font-family: mr !important; }
+  *:focus { outline: none !important; }
+</style>
+
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="Pragma" content="no-cache" /><meta http-equiv="Expires" content="-1" /><meta http-equiv="Cache-Control" content="no-cache" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body class="t-PageBody--login t-PageTemplate--login no-anim   t-DeferredRendering t-LoginPage--split apex-top-nav apex-icons-fontapex apex-theme-ebok rw-mode-header--light rw-mode-body--light rw-layout--fixed t-PageBody--scrollTitle rw-pillar--neutral"  >
+<form action="wwv_flow.accept?p_context=e/logowanie/17539542041269" method="post" name="wwv_flow" id="wwvFlowForm" data-oj-binding-provider="none" novalidate >
+<input type="hidden" name="p_flow_id" value="110" id="pFlowId" /><input type="hidden" name="p_flow_step_id" value="102" id="pFlowStepId" /><input type="hidden" name="p_instance" value="17539542041269" id="pInstance" /><input type="hidden" name="p_page_submission_id" value="1373996516269001844899413184230995616" id="pPageSubmissionId" /><input type="hidden" name="p_request" value="" id="pRequest" /><input type="hidden" name="p_reload_on_submit" value="S" id="pReloadOnSubmit" /><input type="hidden" value="e&#x2F;logowanie&#x2F;17539542041269" id="pContext" /><input type="hidden" value="1373996516269001844899413184230995616" id="pSalt" />
+<div class="t-Login-bg">
+  <div id="R_TLO_102" class="t-ImageRegion t-ImageRegion--stretch t-ImageRegion--auto t-ImageRegion--cover t-ImageRegion--square t-ImageRegion--noFilter margin-top-none margin-bottom-none margin-left-none margin-right-none"  ><img src="r&#x2F;ebok&#x2F;110&#x2F;files&#x2F;static&#x2F;v1491&#x2F;tlo1_ebok.jpeg" alt=""  /></div>
+  <div class="t-Login-bgImg"></div>
+</div><div class="t-Login-container">
+  <header class="t-Login-containerHeader"></header>
+  <main class="t-Login-containerBody" id="main"><span id="APEX_SUCCESS_MESSAGE" data-template-id="95278064813691115_S" class="apex-page-success u-hidden"></span><span id="APEX_ERROR_MESSAGE" data-template-id="95278064813691115_E" class="apex-page-error u-hidden"></span><div class="container">
+<div class="row ">
+<div class="col col-12 apex-col-auto col-start col-end" ><div class="t-Login-region t-Form--stretchInputs t-Form--labelsAbove t-Login-region--headerHidden js-removeLandmark t-Form--slimPadding t-Form--leftLabels margin-top-none margin-bottom-none margin-left-none margin-right-none" id="R522281863424424177"  role="region" aria-labelledby="R_LOGOWANIE_102_heading" >
+  <div class="t-Login-header">
+    
+    <span class="t-Login-logo " aria-hidden="true"></span>
+    <h2 class="t-Login-title" id="R_LOGOWANIE_102_heading" data-apex-heading>Logowanie</h2>
+  </div>
+  <div class="t-Login-body"><input type="hidden" name="P102_HTTP" id="P102_HTTP" value=""><input type="hidden" name="P102_IP" id="P102_IP" value=""><input type="hidden" name="P102_POMOC" id="P102_POMOC" value=""><div class="t-Form-fieldContainer t-Form-fieldContainer--hiddenLabel rel-col  apex-item-wrapper apex-item-wrapper--has-initial-value apex-item-wrapper--textarea" id="P102_NAZWA_CONTAINER"><div class="t-Form-labelContainer t-Form-labelContainer--hiddenLabel col col-null">
+<label for="P102_NAZWA" id="P102_NAZWA_LABEL" class="t-Form-label u-VisuallyHidden"></label>
+</div><div class="t-Form-inputContainer col col-null"><div class="t-Form-itemWrapper"><input type="hidden" id="P102_NAZWA" name="P102_NAZWA" value="eBOK"><input type="hidden" data-for="P102_NAZWA" value="6rVMouHeNGeg2Z2Htz_sm3cDbRxeTA-_yj9uEDqwYnTPtvYU1f-I3wdEoHWs17iZB5uug3b5GGPE_X6qfdIT2w"><span id="P102_NAZWA_DISPLAY"  class="display_only&#x20;apex-item-display-only&#x20;center_item" style="font-weight:bold; font-size:200%; height:100%; color:#404040; line-height:125%; margin: 0 auto 0 auto; padding: 0; text-align:center; width:100%;"  data-escape="true">eBOK</span></div><span id="P102_NAZWA_error_placeholder" class="a-Form-error" data-template-id="95436050037691187_ET"></span></div></div><div class="t-Form-fieldContainer t-Form-fieldContainer--hiddenLabel rel-col  apex-item-wrapper apex-item-wrapper--has-initial-value apex-item-wrapper--display-image" id="P102_LOGO_CONTAINER"><div class="t-Form-labelContainer t-Form-labelContainer--hiddenLabel col col-null">
+<label for="P102_LOGO" id="P102_LOGO_LABEL" class="t-Form-label u-VisuallyHidden">Logo</label>
+</div><div class="t-Form-inputContainer col col-null"><div class="t-Form-itemWrapper"><span class="t-Form-itemText t-Form-itemText--pre"><a style="margin: 0 auto 0 auto; text-align:center;" target="_top" href="javascript:void(0);" onClick='window.open("https://kpwik.com")'></span><img  id="P102_LOGO" class="display_image&#x20;apex-item-image" style="width:auto; max-height:15vh; margin: 0 auto 0 auto; filter:invert(0%)!important;"  src="&#x2F;apex&#x2F;r&#x2F;ebok&#x2F;e&#x2F;logowanie?dok_id=logo1_ebok.jpeg&amp;request=APPLICATION_PROCESS%3Dpokaz_obrazek&amp;clear=RP,102&amp;cs=1nMQyAO8QhcBkrnGLv1qaFKE8I-vKWWmgZhLnqCANZzljXKQVy3JnqCk1-M8Tj4ib3b4bZf0y83N0Wfy5dUCqCA" alt="Logo" title="Logo" loading="lazy" /><span class="t-Form-itemText t-Form-itemText--post"></a></span></div><span id="P102_LOGO_error_placeholder" class="a-Form-error" data-template-id="95436050037691187_ET"></span></div></div><div class="t-Form-fieldContainer t-Form-fieldContainer--hiddenLabel rel-col  apex-item-wrapper apex-item-wrapper--has-initial-value apex-item-wrapper--textarea" id="P102_WLASCICIEL_CONTAINER"><div class="t-Form-labelContainer t-Form-labelContainer--hiddenLabel col col-null">
+<label for="P102_WLASCICIEL" id="P102_WLASCICIEL_LABEL" class="t-Form-label u-VisuallyHidden">Właściciel</label>
+</div><div class="t-Form-inputContainer col col-null"><div class="t-Form-itemWrapper"><input type="hidden" id="P102_WLASCICIEL" name="P102_WLASCICIEL" value="Kobierzyckie Przedsiębiorstwo Wodociągów i Kanalizacji Spółka z ograniczoną odpowiedzialnością"><input type="hidden" data-for="P102_WLASCICIEL" value="jmenuuBjD4eZblKqYj6DUyWxO3fPrQGBxhCryUiyCKSlEfM5SmWPzbEXWQ3Y2RtE5x_E7uMmorNNkDB7furR8w"><span id="P102_WLASCICIEL_DISPLAY"  class="display_only&#x20;apex-item-display-only&#x20;center_item" style="font-weight:normal; font-size:150%; height:100%; color:#404040; line-height:125%; margin: 0 auto 0 auto; padding: 0; text-align:center; width:100%;"  data-escape="true">Kobierzyckie Przedsiębiorstwo Wodociągów i Kanalizacji Spółka z ograniczoną odpowiedzialnością</span></div><span id="P102_WLASCICIEL_error_placeholder" class="a-Form-error" data-template-id="95436050037691187_ET"></span></div></div><div class="t-Form-fieldContainer t-Form-fieldContainer--floatingLabel  apex-item-wrapper apex-item-wrapper--text-field" id="P102_USERNAME_CONTAINER"><div class="t-Form-labelContainer">
+<label for="P102_USERNAME" id="P102_USERNAME_LABEL" class="t-Form-label">Identyfikator (nr Nabywcy 5 cyfr, bez znaku @)</label>
+</div><div class="t-Form-inputContainer"><div class="t-Form-itemWrapper"><input type="text"  id="P102_USERNAME" name="P102_USERNAME" class="text_field&#x20;apex-item-text&#x20;ir_tooltip" autocomplete="username" title="Wprowadź Twój identyfikator, jest to symbol klienta z faktury lub umowy z pominięciem znaku @" value="" maxlength="100"  /></div><span id="P102_USERNAME_error_placeholder" class="a-Form-error" data-template-id="95436309228691187_ET"></span></div></div><div class="t-Form-fieldContainer t-Form-fieldContainer--floatingLabel  apex-item-wrapper apex-item-wrapper--password" id="P102_PASSWORD_CONTAINER"><div class="t-Form-labelContainer">
+<label for="P102_PASSWORD" id="P102_PASSWORD_LABEL" class="t-Form-label">Hasło</label>
+</div><div class="t-Form-inputContainer"><div class="t-Form-itemWrapper"><input type="password" name="P102_PASSWORD" size="" maxlength="100" value=""  id="P102_PASSWORD" class="password&#x20;apex-item-text&#x20;ir_tooltip" autocomplete="current-password" title="Twoje hasło"  onkeypress="return apex.submit({request:'P102_PASSWORD',submitIfEnter:event})"  /></div><span id="P102_PASSWORD_error_placeholder" class="a-Form-error" data-template-id="95436309228691187_ET"></span></div></div><button onclick="apex.submit({request:&#x27;P102_ZALOGUJ&#x27;,validate:true});" class="t-Button t-Button--hot " type="button"  id="ZALOGUJ"><span class="t-Button-label">Zaloguj się</span></button></div>
+  <div class="t-Login-buttons"></div>
+  <div class="t-Login-links"></div>
+  <div class="t-Login-subRegions"><div class="container">
+<div class="row ">
+<div class="col col-12 apex-col-auto col-start col-end" ><div id="R_PANEL_UZYTKOWNIKA_102" class="margin-top-none"  ><ul class="t-Tabs t-Tabs--small t-Tabs--simple t-Tabs--iconsAbove"><li class="t-Tabs-item " id="Sprawdź jak odzyskać hasło">
+  <a href="javascript:apex.theme42.dialog('\u002Fapex\u002Fr\u002Febok\u002Fe\u002Fnowe_haslo?clear=RP,99\u0026cs=3mSvyuJa6H-CdCYQodnK7_YhBGAdCkNQTpel7n4te7fKlL-lWB3OburhRKikmZxe2U9Fz19QwuN5pDxOtIEoFkg\u0026dialogCs=lvi41Kk3UAALqsV6i21IeYFB4z7FAmHmkWqQwR6Ot_oHk_QMSp87trAD_vtiOOhEFBgPlTaAnD2GKetKZFGIxA',{title:'Nowe has\u0142o',w:'720',mxw:'960',modal:true,dialog:null,dlgCls:'t-Drawer-page--standard '+''},' js-dialog-class-t-Drawer--pullOutEnd',apex.jQuery('#R_PANEL_UZYTKOWNIKA_102'))" class="t-Tabs-link ">
+    <span class="t-Icon fa&#x20;fa-unlock" aria-hidden="true"></span>
+    <span class="t-Tabs-label">Nie pamiętam hasła</span>
+  </a>
+</li><li class="t-Tabs-item " id="Utwórz nowe konto">
+  <a href="javascript:apex.theme42.dialog('\u002Fapex\u002Fr\u002Febok\u002Fe\u002Fkonto_uzytkownika?clear=RP,98\u0026cs=3lXTjKbSvIaki1pt7An2TBt5fEuI5-CdVLGHz1L65EKdN5KP54c4qLl-Fp10__j0IBcw_ERPPxvDISjgXn0z0CA\u0026dialogCs=WFjsao92R8vQII7Ew7PHnW-ld0AQ0004V6_wb-wRa6FDmQcwtyW3_9ERr0HvZQJ5S-SM3TOpd9e7uY_WMTVudg',{title:'Konto u\u017Cytkownika',w:'720',mxw:'960',modal:true,dialog:null,dlgCls:'t-Drawer-page--standard '+''},' js-dialog-class-t-Drawer--pullOutEnd',apex.jQuery('#R_PANEL_UZYTKOWNIKA_102'))" class="t-Tabs-link ">
+    <span class="t-Icon fa&#x20;fa-user-plus" aria-hidden="true"></span>
+    <span class="t-Tabs-label">Rejestracja</span>
+  </a>
+</li><li class="t-Tabs-item " id="Zapoznaj się z regulaminem">
+  <a href="/apex/r/ebok/e/logowanie?dok_id=regulamin1_ebok.pdf&request=APPLICATION_PROCESS%3Dpobieranie2&clear=RP,102&cs=1aTgDynvr--_rE0NGoqx4D155gPG6bsNEyuohoo1Xd_7yNtSAsppIbHM6BFyccg-NcUmMYmZcF7DwPgkB9nVmWw" class="t-Tabs-link ">
+    <span class="t-Icon fa&#x20;fa-file-text-o" aria-hidden="true"></span>
+    <span class="t-Tabs-label">Regulamin</span>
+  </a>
+</li></ul><div class="container">
+<div class="row ">
+<div class="col col-12 apex-col-auto col-start col-end" ><div class="t-CardsRegion u-colors margin-bottom-none" id="R_FILMY_INSTRUKTAZOWE_102"  role="region" aria-label="Filmy&#x20;instrukta&#x017C;owe" ><div id="R_FILMY_INSTRUKTAZOWE_102_Cards" class="a-TMV--cards">
+<ul class="a-CardView-items a-CardView-items--grid3col is-placeholder" aria-hidden="true"><li class="a-CardView-item">
+<div class="a-CardView has-title has-subtitle">
+<div class="a-CardView-header">
+<div class="a-CardView-headerBody">
+</div>
+</div>
+</div>
+</li>
+<li class="a-CardView-item">
+<div class="a-CardView has-title has-subtitle">
+<div class="a-CardView-header">
+<div class="a-CardView-headerBody">
+</div>
+</div>
+</div>
+</li>
+<li class="a-CardView-item">
+<div class="a-CardView has-title has-subtitle">
+<div class="a-CardView-header">
+<div class="a-CardView-headerBody">
+</div>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div></div>
+</div>
+</div></div></div>
+</div>
+</div></div>
+</div></div>
+</div><div class="row ">
+<div class="col col-12 apex-col-auto col-start col-end" ><div id="R_PANEL_LOGA_102" class="center_item  t-Form--noPadding margin-top-sm margin-bottom-none margin-left-none margin-right-none"  ><div class="t-Form-fieldContainer t-Form-fieldContainer--hiddenLabel rel-col margin-right-sm apex-item-wrapper apex-item-wrapper--has-initial-value apex-item-wrapper--display-image" id="P102_BM_CONTAINER"><div class="t-Form-labelContainer t-Form-labelContainer--hiddenLabel col col-null">
+<label for="P102_BM" id="P102_BM_LABEL" class="t-Form-label u-VisuallyHidden">Autopay s. a.</label>
+</div><div class="t-Form-inputContainer col col-null"><div class="t-Form-itemWrapper"><span class="t-Form-itemText t-Form-itemText--pre"><a title="Autopay s. a." alt="Autopay s. a." href="#" onClick='window.open("//autopay.pl/")' target="_top"></span><img  id="P102_BM" class="display_image&#x20;apex-item-image&#x20;img_logo"  src="r&#x2F;ebok&#x2F;110&#x2F;files&#x2F;static&#x2F;v1491&#x2F;logo_autopay.png" alt="Autopay&#x20;s.&#x20;a." title="Autopay&#x20;s.&#x20;a." loading="lazy" /><span class="t-Form-itemText t-Form-itemText--post"></a></span></div><span id="P102_BM_error_placeholder" class="a-Form-error" data-template-id="95436050037691187_ET"></span></div></div></div></div>
+</div>
+</div></main>
+  <footer class="t-Login-containerFooter"></footer>
+</div>
+<input type="hidden" id="pPageFormRegionChecksums" value="&#x5B;&#x5D;">
+<input type="hidden" id="pPageItemsRowVersion" value="" /><input type="hidden" id="pPageItemsProtected" value="UDEwMl9OQVpXQTpQMTAyX1dMQVNDSUNJRUw&#x2F;_Vj11KHyPK3rcXswF3RwFjX-W8DMpYdRIaP8W7v3jdf8zb7XwmuvkdvCKHw7tYrQVFf9xnaf5YVkgoHLKUs-2g" /></form>
+
+
+<script>
+var apex_img_dir = "\u002Fi\u002F";
+var apex = {env: {APP_USER: "nobody",APP_ID: "110",APP_PAGE_ID: "102",APP_SESSION: "17539542041269",APP_FILES: "r\u002Febok\u002F110\u002Ffiles\u002Fstatic\u002Fv1491\u002F",WORKSPACE_FILES: "r\u002Febok\u002Ffiles\u002Fstatic\u002Fv2\u002F",APEX_VERSION: "22.2.0",APEX_BASE_VERSION: "22.2"},
+libVersions:{ckeditor5:"35.0.1",cropperJs:"1.5.12",domPurify:"2.3.8",fullcalendar:"5.11.2",hammer:"2.0.8",jquery:"3.6.0",jqueryUi:"1.13.2",maplibre:"2.1.9",markedJs:"4.0.17",prismJs:"1.28.0",oraclejet:"12.1.3",monacoEditor:"0.32.1",lessJs:"4.1.3"}};
+</script>
+<script src="/i/libraries/apex/minified/desktop_all.min.js?v=22.2.0"></script>
+<script src="wwv_flow.js_messages?p_app_id=110&p_lang=pl&p_version=22.2.0-619950050"></script>
+
+<script type="text/javascript">
+apex.da.initDaEventList = function(){
+apex.da.gEventList = [
+{"executionType":"IMMEDIATE","bindEventType":"ready","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"waitForResult":true,"affectedElementsType":"ITEM","affectedElements":"P0_LICZNIK",javascriptFunction:apex.da.setValue,"ajaxIdentifier":"REEgVFlQRX5-MTU2NDY3Njc3OTIxOTcyNDg1\u002FW4_wJuO2tJ6bYNaf-Wlwmdv1FKl4zKxTnUZZluozriHgh2qQVrvPF_bBLLEpkJTt-2Wz7ZPmQbFmK5k7ZTM-_w","attribute01":"STATIC_ASSIGNMENT","attribute02":"15:00","attribute09":"N","action":"NATIVE_SET_VALUE"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"ITEM","affectedElements":"P0_SESJA",javascriptFunction:com_oracle_apex_timer.init,"attribute01":"add","attribute02":"sesja","attribute03":"900000","attribute04":"infinite","action":"PLUGIN_COM.ORACLE.APEX.TIMER"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"ITEM","affectedElements":"P0_LICZNIK",javascriptFunction:function (){ var counter = 15 * 60;
+var timer;
+var tekst;
+
+function myfunction() { 
+  counter--;
+  tekst = new Date(counter*1000).toISOString().substr(14,5);  
+  apex.item("P0_LICZNIK").setValue(tekst);
+  };
+
+window.onload = setInterval(myfunction,1000);
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"triggeringElementType":"JQUERY_SELECTOR","triggeringElement":".row","bindType":"live","bindDelegateTo":".row","executionType":"IMMEDIATE","bindEventType":"apexafterrefresh","anyActionsFireOnInit":true,actionList:[{"eventResult":true,"executeOnPageInit":true,"stopExecutionOnError":true,"affectedElementsType":"JQUERY_SELECTOR","affectedElements":".ir_tooltip",javascriptFunction:apexTooltip.showTooltip,"attribute01":"tooltipster-default","attribute03":"true","attribute04":"fade","attribute05":"right","attribute06":"0","attribute07":"hover","attribute08":"0","attribute10":"false","attribute11":"TITLE","action":"PLUGIN_DE.DANIELH.APEXTOOLTIP"}]},
+{"triggeringElementType":"ITEM","triggeringElement":"P0_SESJA","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"timer_expired.COM_ORACLE_APEX_TIMER","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ window.location = 'apex_authentication.logout?p_app_id=110&p_session_id=17539542041269';
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"triggeringElementType":"JAVASCRIPT_EXPRESSION","triggeringElement": function() {
+return ($(':input[type="text"], :input[type="tel"], :input[type="email"], textarea, .apex-item-datepicker')
+  .bind('input', function() {
+  let input = this.selectionStart,
+      regex = /[&<>"';*|=%]|-{2,}/gi,
+      value = $(this).val();
+  if(regex.test(value)) {
+    $(this).val(value.replace(regex, ''));
+     input--;
+  }
+  this.setSelectionRange(input, input);
+})
+); },"bindType":"bind","executionType":"IMMEDIATE","bindEventType":"change","anyActionsFireOnInit":false,actionList:[]},
+{"triggeringElementType":"JAVASCRIPT_EXPRESSION","triggeringElement": function() {
+return ($('.apex-item-datepicker')
+  .bind('input', function() {
+  let input = this.selectionStart,
+      regex = /[a-z]|[&!~`@#&()$^<>";*,.:?'\/\\|{[\}\]=%+_]|-{2,}/gi,
+      value = $(this).val();
+  if(regex.test(value)) {
+    $(this).val(value.replace(regex, ''));
+     input--;
+  }
+  this.setSelectionRange(input, input);
+})
+); },"bindType":"live","executionType":"IMMEDIATE","bindEventType":"change","anyActionsFireOnInit":false,actionList:[]},
+{"triggeringElementType":"JQUERY_SELECTOR","triggeringElement":".apex-item-datepicker","triggeringConditionType":"JAVASCRIPT_EXPRESSION","triggeringConditionExpression": function() {
+return (this.browserEvent.keyCode !== 8
+); },"bindType":"live","executionType":"IMMEDIATE","bindEventType":"keyup","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ const datepickeryNode = document.querySelectorAll('.apex-item-datepicker');
+const datepickeryTablica = Array.from(datepickeryNode);
+const konwertujNaDate = function () {
+  const [pojedynczyDatePicker] = datepickeryTablica.filter(
+    (datepicker) => datepicker === document.activeElement
+  );
+  if 
+    (pojedynczyDatePicker.value.length === 4 ||
+     pojedynczyDatePicker.value.length === 7)
+    {
+    pojedynczyDatePicker.value = pojedynczyDatePicker.value.concat('-');
+   }
+}
+
+konwertujNaDate();
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"triggeringElementType":"ITEM","triggeringElement":"P0_WYLOGUJ","conditionElement":"P0_WYLOGUJ","triggeringConditionType":"EQUALS","triggeringConditionExpression":"OUT","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"change","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ window.location = 'apex_authentication.logout?p_app_id=110&p_session_id=17539542041269';
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"executionType":"IMMEDIATE","bindEventType":"ready","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ if(apex.message.TYPE.SUCCESS='success'){
+    setTimeout(function(){ $('#APEX_SUCCESS_MESSAGE > .t-Body-alert .t-Alert').fadeOut('slow'); }, 2000);
+};
+},"action":"NATIVE_JAVASCRIPT_CODE"}]}];
+}
+</script>
+<link rel="stylesheet" href="r/ebok/110/files/plugin/466850427865153491/v443/css/tooltipster.bundle.min.css" type="text/css" />
+<style type="text/css">
+
+button.a-Button.a-Table-columntoggleBtn { display: none !important; }
+.t-Comments-userIcon { border-radius: 50px !important; }
+.fa:before { vertical-align: sub !important; }
+button { text-transform: uppercase !important; font-weight: 600 !important; letter-spacing: 1px !important; }
+.ui-dialog-title { font-weight: bold !important; }
+.t-Footer-version { display: none !important; }
+.szerokie_pola { width: 100% !important; }
+.t-Body-content { min-height: 0 !important; }
+.nodatafound { padding: 0 !important; }
+.apex-help-dialog { font-size: 120% !important; line-height: 150% !important; height: 100% !important; }
+.t-Form-label { color: #000000 !important;  }
+.t-Login-title { margin-bottom: 0 !important; font-size: 2.5em !important; font-weight: bold !important; color:#404040 !important; }
+.zgoda { font-weight: 400 !important; line-height: 16px !important; font-size: 12px !important;  margin-bottom: .75rem !important;}
+.czerwona { color: #ca4d3b; }
+.zielona { color: #228B22; }
+.b100 { font-weight: bold !important; }
+.p25 { font-size: 125% !important; }
+.gtrans { pointer-events: none !important; top: 0 !important; height: 0 !important; margin: 0 !important; padding: 0 !important; }
+.gt { pointer-events: none !important; font-family: mr !important; margin: 0 !important; padding: 0 !important; } 
+.oj-inputdatetime-input { opacity: 1.0 !important; }
+.apex-rds-item { font-weight: bold !important; }
+.t-Form-label { font-weight: normal !important; }
+button.a-Button.a-Table-columntoggleBtn { display: none !important; }
+th { font-size: 100% !important; }
+td.u-tR { text-wrap:none; white-space:nowrap; }
+.dynamic-selection-element { display: inline-block; transform: scale(2.0); margin: 0 !important; padding: 0 !important; float: right; }
+
+</style>
+
+<script src="/i/libraries/apex/minified/widget.stickyWidget.min.js?v=22.2.0"></script>
+<script src="/i/themes/theme_42/22.2/js/theme42.min.js?v=22.2.0"></script>
+
+
+<script src="r/ebok/110/files/static/v1491/element.min.js?cb=googleTranslateElementInit"></script>
+
+
+
+
+<script src="/i/libraries/apex/minified/widget.apexTabs.min.js?v=22.2.0"></script>
+<script src="/i/libraries/apex/minified/interactiveGrid.min.js?v=22.2.0"></script>
+<script src="/i/libraries/apex/minified/widget.templateReport.min.js?v=22.2.0"></script>
+<script src="r/ebok/110/files/plugin/4396317487992487149/v1/com_oracle_apex_timer.min.js"></script>
+<script src="r/ebok/110/files/plugin/466850427865153491/v443/js/tooltipster.bundle.min.js"></script>
+<script src="r/ebok/110/files/plugin/466850427865153491/v443/js/apextooltip.min.js"></script>
+
+
+
+<script type="text/javascript">
+function WHCreateCookie(name, value, days) {
+        var date = new Date();
+        date.setTime(date.getTime() + (days*24*60*60*1000));
+        var expires = "; expires=" + date.toGMTString();
+	    document.cookie = name+"="+value+expires+"; path=/";
+    }
+    function WHReadCookie(name) {
+	    var nameEQ = name + "=";
+	    var ca = document.cookie.split(';');
+	    for(var i=0; i < ca.length; i++) {
+		    var c = ca[i];
+		    while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+		    if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+	    }
+	    return null;
+    }
+    window.onload = WHCheckCookies;
+    function WHCheckCookies() {
+        if(WHReadCookie('cookies_accepted') != 'T') {
+            var message_container = document.createElement('div');
+            message_container.id = 'cookies-message-container';
+            var html_code = '<div id="cookies-message" style="font-weight:bold; opacity: 0.9; padding: 10px 0px; font-size: 125%; border-bottom: 1px solid #CCCCCC; text-align: center; position: fixed; bottom: 0; background-color: #FFFFFF; width: 100%; z-index: 999;">Ta strona używa ciasteczek (cookies), dzięki którym nasz serwis może działać lepiej. <a href="/apex/r/ebok/e/polityka_prywatnosci?clear=RP,97&cs=3JC_2BKAte3cJ9C4dIbTG0UgMjue2tXQBNf3N_YEXmeWfMD8U1TlcEERd_BvWd6K7nH_Ii_4iqEskW07hjp4Vsg">Dowiedz się więcej.</a> <button class="t-Button t-Button--hot t-Button--large" onclick="javascript:WHCloseCookiesWindow();" type="button" id="accept-cookies-checkbox" name="accept-cookies"><span class="t-Button-label">Rozumiem</span></button></div>';
+            message_container.innerHTML = html_code;
+            document.body.appendChild(message_container);
+        }
+    }
+    function WHCloseCookiesWindow() {
+        WHCreateCookie('cookies_accepted', 'T', 365);
+        document.getElementById('cookies-message-container').removeChild(document.getElementById('cookies-message'));
+    }
+apex.jQuery( function() {
+apex.page.init( this, function() {
+try {
+(function(){
+var lTimeoutField = document.getElementById("apex_login_throttle_sec"),
+    lTimeout      = lTimeoutField ? +lTimeoutField.innerHTML : 0;
+if (lTimeout) {
+    var lTimer = window.setInterval (
+        function() {
+            if (lTimeout > 0) {
+                lTimeoutField.innerHTML = lTimeout;
+                lTimeout--;
+            } else {
+                window.clearInterval(lTimer);
+                var lDiv = document.getElementById("apex_login_throttle_div");
+                if (lDiv) {
+                    lDiv.parentNode.removeChild(lDiv);
+                    return true;
+                }
+            }
+        },
+        1000 );
+}})();
+(function(){apex.util.defineTemplates([{"name":"APEX_CARDS_BEFORE","template":"\u003Cul class=\u0022a-CardView-items #CARD_LAYOUT# #COMPONENT_CLASSES#\u0022\u003E\u000A","args":[{"name":"CARD_LAYOUT","escape":"ATTR"},{"name":"COMPONENT_CLASSES","escape":"ATTR"}]},{"name":"APEX_CARDS_CARD_128084454549329770","template":"\u003Cli class=\u0022a-CardView-item \u0026APEX$ROW_STATE_CLASSES.\u0022 data-id=\u0022\u0026APEX$ROW_ID.\u0022 data-rownum=\u0022\u0026APEX$ROW_INDEX.\u0022\u003E\u000A\u003Cdiv class=\u0022a-CardView{if ?TITLE_HTML_EXPR\u002F} has-title{endif\u002F}{if ?SUB_TITLE_HTML_EXPR\u002F} has-subtitle{endif\u002F}{if APEX$ACTION_EXISTS\u002F} has-actions{endif\u002F}{if APEX$FULL_ACTION_EXISTS\u002F} has-actions--full{endif\u002F} #CARD_CLASSES#\u0022\u003E\u000A{if ?APEX$FULL_CARD_LINK\u002F}\u003Ca class=\u0022a-CardView-fullLink\u0022 href=\u0022#APEX$FULL_CARD_LINK#\u0022 #APEX$FULL_CARD_LINK_ATTR#\u003E\u003Cspan class=\u0022u-vh\u0022\u003E#TITLE_HTML_EXPR#\u003C\u002Fspan\u003E\u003C\u002Fa\u003E{endif\u002F}\u000A\u003Cdiv class=\u0022a-CardView-header\u0022\u003E\u000A\u003Cdiv class=\u0022a-CardView-headerBody\u0022\u003E\u000A{if ?TITLE_HTML_EXPR\u002F}#TITLE_HTML_EXPR#{endif\u002F}\u000A{if ?SUB_TITLE_HTML_EXPR\u002F}\u000A#SUB_TITLE_HTML_EXPR#{endif\u002F}\u000A\u003C\u002Fdiv\u003E\u000A\u003C\u002Fdiv\u003E\u000A{if APEX$BUTTON_ACTION_EXISTS\u002F}\u000A\u003Cdiv class=\u0022a-CardView-actions\u0022\u003E\u003Cdiv class=\u0022a-CardView-actionsPrimary\u0022\u003E\u003C\u002Fdiv\u003E\u003Cdiv class=\u0022a-CardView-actionsSecondary\u0022\u003E\u003C\u002Fdiv\u003E\u003C\u002Fdiv\u003E{endif\u002F}\u000A\u003C\u002Fdiv\u003E\u000A\u003C\u002Fli\u003E\u000A","args":[{"name":"CARD_CLASSES","escape":"ATTR"},{"name":"APEX$FULL_CARD_LINK","escape":"ATTR"},{"name":"APEX$FULL_CARD_LINK_ATTR","escape":"RAW"},{"name":"TITLE_HTML_EXPR","escape":"RAW"},{"name":"SUB_TITLE_HTML_EXPR","escape":"RAW"}]},{"name":"APEX_CARDS_AFTER","template":"\u003C\u002Ful\u003E"}]);apex.widget.templateReportRegionInit({"regionId":"128084454549329770","regionStaticId":"R_FILMY_INSTRUKTAZOWE_102","regionType":"Cards","ajaxIdentifier":"UkVHSU9OIFRZUEV-fjEyODA4NDQ1NDU0OTMyOTc3MA\u002Fa9A5MC-0oKOTVsFz8giemQuTzTN2VK0s0v1qmIfrbf9KETnlKZXszbZl8_1_zs6aO3M0Ig01_qZhNkFzwBnaeQ","lazyLoading":true,"modelName":"R_FILMY_INSTRUKTAZOWE_102","modelOptions":{"regionId":128084454549329770,"paginationType":"progressive","pageSize":100,"identityField":"ID"},"pagination":{"scroll":true,"showRange":false,"firstAndLastButtons":false,"hideSinglePage":true},"footer":false,"hideEmptyFooter":true,"noDataIcon":" ","noDataMessage":" ","hasSize":false,"beforeTemplate":"{with\u002F}\u000ACARD_LAYOUT:=a-CardView-items--grid3col\u000ACOMPONENT_CLASSES:=\u000A{apply APEX_CARDS_BEFORE\u002F}","recordTemplate":"{with\u002F}\u000ACARD_CLASSES:=\u000AAPEX$FULL_CARD_LINK:=\u0026\u0022APEX$FULL_CARD_LINK\u0022!RAW.\u000AAPEX$FULL_CARD_LINK_ATTR:=title=\u0022Film instrukta\u017Cowy\u0022 alt=\u0022Film instrukta\u017Cowy\u0022 aria-label=\u0022Film instrukta\u017Cowy\u0022\u000ATITLE_HTML_EXPR:=\u003Cspan class=\u0022fa fa-film fa-lg\u0022\u003E\u003C\u002Fspan\u003E\u000ASUB_TITLE_HTML_EXPR:=\u003Ch4 class=\u0022a-CardView-subTitle\u0022 style=\u0022font-size: 70\u0025\u0022\u003E\u0026OPIS.\u003C\u002Fh4\u003E\u000A{apply APEX_CARDS_CARD_128084454549329770\u002F}","afterTemplate":"{with\u002F}\u000A{apply APEX_CARDS_AFTER\u002F}","columns":[{"ID":{"index":0},"OPIS":{"index":1},"APEX$FULL_CARD_LINK":{"index":2},"APEX$BUTTON_ACTION_EXISTS":{"index":3},"APEX$FULL_ACTION_EXISTS":{"index":4},"APEX$ACTION_EXISTS":{"index":5}}]});})();
+} catch(e) {apex.debug.error(e)};
+apex.item.waitForDelayLoadItems().done(function() {
+try {
+(function(){apex.da.initDaEventList();
+apex.da.init();})();
+apex.theme42.initializePage.appLogin();
+apex.item("P102_HTTP").setValue(window.location.protocol);
+console.log('HTTP:',apex.item("P102_HTTP" ).getValue());
+
+fetch("//api64.ipify.org")
+  .then(response => response.text())  
+  .then(data => {  
+  apex.item("P102_IP").setValue(data,data,true);  
+  //$s("P102_IP",data,data,true);
+  console.log('IP:',apex.item("P102_IP" ).getValue());
+});
+
+console.log('VERSION:',"5.23.10.5");
+} finally {
+apex.event.trigger(apex.gPageContext$,'apexreadyend');
+};
+});
+});
+});apex.pwa.cleanup( { serviceWorkerPath:'\u002Fapex\u002Fr\u002Febok\u002Fe\u002Fsw.js?v=22.2.0-619950050\u0026lang=pl' } );
+</script>
+
+</body>
+</html>

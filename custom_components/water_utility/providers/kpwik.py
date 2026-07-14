@@ -1,7 +1,7 @@
 """KPWIK (Kobierzyckie Przedsiębiorstwo Wodociągów i Kanalizacji) water utility provider."""
+import html
 import json
 import logging
-import random
 import re
 import ssl
 from datetime import datetime
@@ -94,6 +94,14 @@ class KpwikProvider(WaterProvider):
     # Internal helpers
     # ------------------------------------------------------------------
 
+    # Sent only on the wwv_flow.ajax region fetch. The login page GET and the
+    # wwv_flow.accept POST are ordinary browser navigations (the page submits a
+    # plain <form method="post">), so flagging them as XHR misrepresents them.
+    _AJAX_HEADERS = {
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+
     def _make_client(self) -> httpx.Client:
         return httpx.Client(
             base_url=BASE_URL,
@@ -106,33 +114,37 @@ class KpwikProvider(WaterProvider):
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/148.0.0.0 Safari/537.36"
                 ),
-                "Accept": "application/json, text/javascript, */*; q=0.01",
-                "X-Requested-With": "XMLHttpRequest",
+                "Accept": (
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                ),
                 "Origin": BASE_URL,
                 "Referer": f"{BASE_URL}/",
             },
         )
 
     @staticmethod
-    def _find_input_value(html: str, attr_name: str, attr_value: str) -> Optional[str]:
+    def _find_input_value(html_text: str, attr_name: str, attr_value: str) -> Optional[str]:
         """Return the `value="..."` of a hidden <input> tag identified by another
         attribute (id, name, or data-for). APEX renders these as plain HTML hidden
         inputs — NOT as inline JSON — and the attribute order on the tag varies
         (sometimes `value` comes before the identifying attribute, sometimes after),
-        so both orders are tried. Confirmed via live inspection of the real
-        rendered login page (the previous JSON-style regexes never matched anything,
-        since this data was never present as literal JSON text on the page)."""
+        so both orders are tried.
+
+        The value is HTML-unescaped before being returned. This matters: APEX emits
+        pPageItemsProtected as standard base64, so it can contain "/", which the page
+        renders as `&#x2F;`. Submitting the escaped form corrupts the HMAC and the
+        server rejects the login with a checksum error. (The per-item `ck` checksums
+        are base64url and contain no "/", which is why they appeared to work.)"""
         escaped = re.escape(attr_value)
         m = re.search(
-            rf'<input[^>]*\b{attr_name}="{escaped}"[^>]*\bvalue="([^"]*)"', html
+            rf'<input[^>]*\b{attr_name}="{escaped}"[^>]*\bvalue="([^"]*)"', html_text
         )
+        if not m:
+            m = re.search(
+                rf'<input[^>]*\bvalue="([^"]*)"[^>]*\b{attr_name}="{escaped}"', html_text
+            )
         if m:
-            return m.group(1)
-        m = re.search(
-            rf'<input[^>]*\bvalue="([^"]*)"[^>]*\b{attr_name}="{escaped}"', html
-        )
-        if m:
-            return m.group(1)
+            return html.unescape(m.group(1))
         return None
 
     # Page items submitted on the login form, in the same order the browser
@@ -151,25 +163,32 @@ class KpwikProvider(WaterProvider):
     _LOGIN_PROTECTED_ITEMS = ("P102_NAZWA", "P102_WLASCICIEL")
 
     @classmethod
-    def _scrape_login_page(cls, html: str) -> dict:
+    def _scrape_login_page(cls, html_text: str) -> dict:
         """Extract all APEX hidden fields and checksums from the login page HTML."""
 
-        def _find(pattern, text, group=1, default=""):
-            m = re.search(pattern, text)
-            return m.group(group) if m else default
-
-        # APEX session instance embedded in the page JS
-        p_instance = _find(r'"pInstance"\s*:\s*"(\d+)"', html)
+        # APEX 22.2 renders the session instance as a hidden input, not as inline
+        # JSON. The form action carries it too, so keep that as a last resort.
+        p_instance = (
+            cls._find_input_value(html_text, "id", "pInstance")
+            or cls._find_input_value(html_text, "name", "p_instance")
+            or ""
+        )
         if not p_instance:
-            # Fallback: URL pattern in form action
-            p_instance = _find(r'logowanie/(\d+)', html)
+            m = re.search(r'logowanie/(\d+)', html_text)
+            p_instance = m.group(1) if m else ""
 
         # One-time submission nonce — plain hidden input <input ... id="pSalt" value="...">
-        salt = cls._find_input_value(html, "id", "pSalt") or ""
+        salt = cls._find_input_value(html_text, "id", "pSalt") or ""
+
+        # Duplicate-submission token. APEX renders this on the page; it must be
+        # echoed back verbatim, not invented client-side.
+        page_submission_id = (
+            cls._find_input_value(html_text, "id", "pPageSubmissionId") or ""
+        )
 
         # The "protected" HMAC covering read-only field names
         # <input type="hidden" id="pPageItemsProtected" value="...">
-        protected = cls._find_input_value(html, "id", "pPageItemsProtected") or ""
+        protected = cls._find_input_value(html_text, "id", "pPageItemsProtected") or ""
 
         # Each page item's current value lives in its own hidden/text <input
         # id="ITEM_NAME" name="ITEM_NAME" value="...">. Protected items additionally
@@ -177,28 +196,22 @@ class KpwikProvider(WaterProvider):
         item_values = {}
         item_checksums = {}
         for name in cls._LOGIN_ITEM_NAMES:
-            item_values[name] = cls._find_input_value(html, "id", name) or ""
-            ck = cls._find_input_value(html, "data-for", name)
+            item_values[name] = cls._find_input_value(html_text, "id", name) or ""
+            ck = cls._find_input_value(html_text, "data-for", name)
             if ck:
                 item_checksums[name] = ck
 
         return {
             "p_instance": p_instance,
             "salt": salt,
+            "page_submission_id": page_submission_id,
             "protected": protected,
             "item_values": item_values,
             "item_checksums": item_checksums,
-            # kept for the diagnostic log below
-            "ck_nazwa": item_checksums.get("P102_NAZWA", ""),
-            "ck_wlasciciel": item_checksums.get("P102_WLASCICIEL", ""),
-            "v_nazwa": item_values.get("P102_NAZWA", ""),
-            "v_wlasciciel": item_values.get("P102_WLASCICIEL", ""),
-            "v_http": item_values.get("P102_HTTP", "") or "https:",
-            "v_ip": item_values.get("P102_IP", ""),
         }
 
     @classmethod
-    def _scrape_meters_page(cls, html: str) -> dict:
+    def _scrape_meters_page(cls, html_text: str) -> dict:
         """Extract the APEX region ajaxIdentifier and page-item checksums
         needed to fetch the meter list from the wodomierze (meters) page."""
 
@@ -207,28 +220,30 @@ class KpwikProvider(WaterProvider):
             return m.group(group) if m else default
 
         # Region ID for the active meters card view
-        region_id = _find(r'"id"\s*:\s*"(9754\d+)"', html)
+        region_id = _find(r'"id"\s*:\s*"(9754\d+)"', html_text)
 
         # ajaxIdentifier is a server-signed token for the region fetch
         ajax_id = _find(
             r'"id"\s*:\s*"9754[^"]*"[^}]*"ajaxIdentifier"\s*:\s*"([^"]+)"',
-            html,
+            html_text,
         )
         if not ajax_id:
             # Broader fallback: first ajaxIdentifier that looks like a region token
-            ajax_id = _find(r'"ajaxIdentifier"\s*:\s*"(UkVHSU9O[^"]+)"', html)
+            ajax_id = _find(r'"ajaxIdentifier"\s*:\s*"(UkVHSU9O[^"]+)"', html_text)
 
         # Checksum for P20_INFSIECINSTAL_ID (the only checksummed item on this page).
         # Same plain-hidden-input pattern confirmed on the login page: a sibling
         # <input data-for="P20_INFSIECINSTAL_ID" value="..."> holds the checksum,
         # not inline JSON text.
-        ck_instal = cls._find_input_value(html, "data-for", "P20_INFSIECINSTAL_ID") or ""
+        ck_instal = (
+            cls._find_input_value(html_text, "data-for", "P20_INFSIECINSTAL_ID") or ""
+        )
 
         # Protected HMAC for the page's form region — plain hidden input.
-        protected = cls._find_input_value(html, "id", "pPageItemsProtected") or ""
+        protected = cls._find_input_value(html_text, "id", "pPageItemsProtected") or ""
 
         # Salt / submission nonce — plain hidden input.
-        salt = cls._find_input_value(html, "id", "pSalt") or ""
+        salt = cls._find_input_value(html_text, "id", "pSalt") or ""
 
         return {
             "region_id": region_id,
@@ -263,27 +278,6 @@ class KpwikProvider(WaterProvider):
                 _LOGGER.error("KPWIK: could not extract p_instance from login page")
                 return False
 
-            # TEMPORARY DIAGNOSTIC LOGGING (remove once login is confirmed working):
-            # logged at WARNING so it's visible without enabling debug logging.
-            _LOGGER.warning(
-                "KPWIK DIAG: p_instance=%r salt=%r protected_len=%s "
-                "ck_nazwa=%r ck_wlasciciel=%r v_nazwa=%r v_wlasciciel=%r v_http=%r v_ip=%r",
-                p_instance,
-                fields["salt"],
-                len(fields["protected"]) if fields["protected"] else 0,
-                fields["ck_nazwa"],
-                fields["ck_wlasciciel"],
-                fields["v_nazwa"],
-                fields["v_wlasciciel"],
-                fields["v_http"],
-                fields["v_ip"],
-            )
-            if not fields["salt"]:
-                _LOGGER.warning(
-                    "KPWIK DIAG: salt/submission-id came back EMPTY — "
-                    "the login POST is very likely being rejected because of this"
-                )
-
             # Step 2 — submit credentials
             # Build the p_json payload exactly as the browser does. Values for
             # every item come from the page's own hidden inputs (scraped above),
@@ -313,12 +307,6 @@ class KpwikProvider(WaterProvider):
                 "salt": fields["salt"],
             }
 
-            # p_page_submission_id is a fresh client-generated nonce — NOT the
-            # same value as salt. The real browser generates a new random numeric
-            # string for it on every submission (confirmed via live capture: it
-            # never appears anywhere in the page HTML, unlike salt/protected/ck).
-            page_submission_id = "".join(random.choices("0123456789", k=39))
-
             post_data = {
                 "p_flow_id":            "110",
                 "p_flow_step_id":       "102",
@@ -326,7 +314,7 @@ class KpwikProvider(WaterProvider):
                 "p_debug":              "",
                 "p_request":            "P102_ZALOGUJ",
                 "p_reload_on_submit":   "S",
-                "p_page_submission_id": page_submission_id,
+                "p_page_submission_id": fields["page_submission_id"],
                 "p_json":               json.dumps(p_json, separators=(",", ":")),
             }
 
@@ -337,15 +325,6 @@ class KpwikProvider(WaterProvider):
                 headers={"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"},
             )
             resp.raise_for_status()
-
-            # TEMPORARY DIAGNOSTIC LOGGING (remove once login is confirmed working):
-            _LOGGER.warning(
-                "KPWIK DIAG: login POST -> status=%s final_url=%s cookies=%s body_snippet=%.400r",
-                resp.status_code,
-                resp.url,
-                list(client.cookies.keys()),
-                resp.text,
-            )
 
             # Verify we are authenticated: the session cookie must be present
             # and the response must not redirect back to the login page
@@ -358,11 +337,6 @@ class KpwikProvider(WaterProvider):
             dash = client.get(
                 f"{APEX_BASE}/r/ebok/e/podsumowanie",
                 params={"session": p_instance},
-            )
-            _LOGGER.warning(
-                "KPWIK DIAG: dashboard check -> status=%s final_url=%s",
-                dash.status_code,
-                dash.url,
             )
             if "logowanie" in dash.url.path:
                 _LOGGER.error("KPWIK: login failed — redirected back to login page")
@@ -448,7 +422,10 @@ class KpwikProvider(WaterProvider):
                     "p_debug":        "",
                     "p_json":         json.dumps(p_json, separators=(",", ":")),
                 },
-                headers={"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"},
+                headers={
+                    **self._AJAX_HEADERS,
+                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                },
             )
             ajax_resp.raise_for_status()
             data = ajax_resp.json()

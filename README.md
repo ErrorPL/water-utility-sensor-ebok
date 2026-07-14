@@ -23,7 +23,7 @@ Home Assistant custom integration for scraping water meter readings and account 
 3. Restart Home Assistant
 
 ### Manual
-1. Copy `custom_components/water_utility_sensor/` to your Home Assistant `custom_components/` directory
+1. Copy `custom_components/water_utility/` to your Home Assistant `custom_components/` directory
 2. Restart Home Assistant
 
 ## Configuration
@@ -52,7 +52,7 @@ pytest tests/
 
 ## Adding a new provider
 
-1. Create `custom_components/water_utility_sensor/providers/your_provider.py`
+1. Create `custom_components/water_utility/providers/your_provider.py`
 2. Implement `WaterProvider` (see `providers/__init__.py` for the ABC)
 3. Decorate the class with `@ProviderRegistry.register`
 4. Add the import to `ProviderRegistry._ensure_loaded()` in `providers/__init__.py`
