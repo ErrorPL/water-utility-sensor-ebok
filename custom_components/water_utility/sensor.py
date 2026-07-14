@@ -62,8 +62,17 @@ class WaterMeterSensor(SensorEntity):
         self._attr_name = f"Water Meter {meter_number}"
         self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
         self._attr_device_class = SensorDeviceClass.WATER
-        self._attr_state_class = SensorStateClass.TOTAL_INCREASING
-        # Primary measurement — not diagnostic
+        # Deliberately NO state_class.
+        #
+        # A state_class makes the recorder derive its own long-term statistics from
+        # this entity's state, timestamped whenever we happened to poll. But a reading
+        # dated 2026-06-18 may not be fetched until weeks later, so those statistics
+        # would attribute all the consumption to the wrong day — and would compete with
+        # the correctly-dated external statistics we write in statistics.py.
+        #
+        # This entity is therefore display-only: it shows the latest dial reading. The
+        # Energy dashboard must use the external statistic (see statistics.py), which
+        # is keyed to the date the utility actually recorded the reading.
         self._attr_entity_category = None
 
     @property

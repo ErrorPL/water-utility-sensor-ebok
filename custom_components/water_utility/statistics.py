@@ -25,6 +25,15 @@ from .providers import WaterReading
 
 _LOGGER = logging.getLogger(__name__)
 
+# HA replaced the has_mean flag with mean_type; omitting it is deprecated and stops
+# working in 2026.11. Fall back to has_mean on older cores that lack the enum.
+try:
+    from homeassistant.components.recorder.models import StatisticMeanType
+
+    _MEAN_FIELDS = {"mean_type": StatisticMeanType.NONE}
+except ImportError:  # pragma: no cover - depends on HA version
+    _MEAN_FIELDS = {"has_mean": False}
+
 
 def statistic_id_for(provider_id: str, meter_number: str) -> str:
     """Build the external statistic id for a meter.
@@ -48,13 +57,17 @@ def async_import_reading(
     # with no time, so anchor to local midnight of that date.
     start = dt_util.start_of_local_day(reading.timestamp)
 
+    # Named distinctly from the sensor entity ("Water Meter C23FA094856") so the two
+    # are tellable apart in the Energy dashboard's source picker.
+    label = "main" if reading.is_main else "sub-meter"
+
     metadata = StatisticMetaData(
-        has_mean=False,
         has_sum=True,
-        name=f"Water meter {reading.meter_number}",
+        name=f"KPWIK {reading.meter_number} ({label})",
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=UnitOfVolume.CUBIC_METERS,
+        **_MEAN_FIELDS,
     )
 
     # `sum` is the cumulative total; for a water meter that is simply the reading on
